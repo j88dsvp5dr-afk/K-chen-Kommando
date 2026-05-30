@@ -2716,7 +2716,10 @@ function RecipeView({ r, compact, onUpdate, kidsProfile, onBatchFreeze, freezer,
   const theme = useTheme();
   const [open, setOpen] = useState(!compact);
   const [editCost, setEditCost] = useState(false);
-  const [total, setTotal] = useState(r.totalCost || "");
+  // Kosten: bereinige KI-Platzhalter wie "Zahl", "X", null
+  const rawCost = r.totalCost || r.costPerPortion || "";
+  const cleanCost = (v) => { const n = parseFloat(String(v).replace(",",".")); return isNaN(n) || n <= 0 ? null : n; };
+  const [total, setTotal] = useState(cleanCost(r.totalCost) ? String(cleanCost(r.totalCost)) : "");
   const [tmMode, setTmMode] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [cookMode, setCookMode] = useState(false); // Koch-Modus: Vollbild
@@ -2724,7 +2727,9 @@ function RecipeView({ r, compact, onUpdate, kidsProfile, onBatchFreeze, freezer,
   const [batchPortions, setBatchPortions] = useState((r.portions || 3) * 3);
   const hasTm = !!(r.tmSteps && r.tmSteps.length > 0);
   const portions = Number(r.portions) || 3;
-  const perPortion = total && portions ? (Number(total) / portions).toFixed(2) : (r.costPerPortion || null);
+  const totalNum = cleanCost(total);
+  const cpNum = cleanCost(r.costPerPortion);
+  const perPortion = totalNum && portions ? (totalNum / portions).toFixed(2) : (cpNum ? cpNum.toFixed(2) : null);
   const score = kidsScore(r, kidsProfile);
   const scoreColor = score >= 8 ? SAGE : score >= 6 ? GOLD : ACCENT;
   const steps = r.steps || [];
