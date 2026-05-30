@@ -3301,7 +3301,7 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
     const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
     const healthStr = Object.entries(health || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "";
 
-    const prompt = `Familien-Wochenplan. ${householdRules(household)} ${dietRules(diet)} ${healthRules(health)}${extra}
+    const prompt = `Familien-Wochenplan. ${householdRules(household)} ${dietRules(diet)} ${healthRules(health)} ${kidsRules(kidsProfile)}${extra}
 TK: ${stock}. Vorrat: ${pant}. Regeln: ${weekdayRules}
 Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["1 Tipp"],"days":[{"day":"Mo","meal":"Gericht","note":"kurz","minutes":25,"isLeftover":false,"thawTonight":""}],"shoppingList":[{"item":"...","amount":"...","cat":"Gemüse"}]}`;
 
@@ -3854,15 +3854,15 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
         const persons = (household?.adults || 1) + (household?.kids?.length || 2);
         const maxCostDay = household?.maxCostPerMeal || 7;
         const maxTime = household?.maxCookTimeWeekday || 30;
-        const healthStr = HEALTH_OPTIONS.filter(o => (health||{})[o.key]).map(o => o.prompt).join(" ") || "";
-        const kidsStr = KIDS_PROFILES.filter(o => (kidsProfile||{})[o.key]).map(o => o.prompt).join(" ") || "";
+        const healthStr = healthRules(health);
+        const kidsStr = kidsRules(kidsProfile); // enthält Dislikes + Profil-Regeln
         const appliedProfiles = [
           ...HEALTH_OPTIONS.filter(o => (health||{})[o.key]).map(o => `${o.emoji} ${o.label}`),
           ...KIDS_PROFILES.filter(o => (kidsProfile||{})[o.key]).map(o => `${o.emoji} ${o.label}`),
           ...((diet||{}).laktosefrei ? ["🥛 Laktosefrei"] : []),
           ...((diet||{}).glutenfrei ? ["🌾 Glutenfrei"] : []),
         ];
-        const prompt = `Du bist Profi-Küchenchef. Erstelle ein leckeres, familienfreundliches Rezept für: "${d.meal}". Für ${persons} Personen (Kinder 12 und 10 J.). ${dietStr}. ${healthStr} ${kidsStr} MAX ${d.minutes || maxTime} Min. MAX ${maxCostDay}€ Gesamtkosten. Genaue Mengenangaben in ml/g. Nur JSON ohne Markdown:
+        const prompt = `Du bist Profi-Küchenchef. Erstelle ein leckeres Rezept für: "${d.meal}". Für ${persons} Personen (Kinder 12 und 10 J.). ${dietRules(diet)}. ${healthStr} ${kidsStr} MAX ${d.minutes || maxTime} Min — prepMinutes im JSON MUSS exakt ${d.minutes||maxTime} sein. MAX ${maxCostDay}€. Mengenangaben in ml/g. Nur JSON ohne Markdown:
 {"title":"${d.meal}","portions":${persons},"prepMinutes":${d.minutes||maxTime},"_rule":"prepMinutes darf MAXIMAL ${d.minutes||maxTime} sein — niemals mehr","reuse":"Reste-Tipp für morgen","estCostPerMeal":"X–Y €","totalCost":"Zahl","costPerPortion":"Zahl","ingredients":[{"item":"Name","amount":"Menge mit Einheit","fromFreezer":false}],"steps":["Schritt 1","Schritt 2"],"nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl}}`;
 
         const txt = await askClaude(prompt, 1500);
