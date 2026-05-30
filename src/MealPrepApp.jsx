@@ -2352,7 +2352,6 @@ Nur JSON, kein Markdown:
               Kein Rezept mit „{searchQ}" gefunden.
             </div>
           )}
-      )}
       {sortedRecipes.map((r) => (
         <Card key={r.id} style={{ border: r.fav ? `2px solid ${GOLD}` : undefined }}>
           <RecipeView r={r} compact kidsProfile={kidsProfile} onUpdate={(upd) => setRecipes(recipes.map((x) => x.id === r.id ? upd : x))} freezer={freezer} setFreezer={setFreezer} />
