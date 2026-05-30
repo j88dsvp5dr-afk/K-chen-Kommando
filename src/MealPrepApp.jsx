@@ -4004,6 +4004,7 @@ function ClipRewards() {
     setRedeemMsg(`↩ Letzte Klammer für ${last.name} rückgängig gemacht.`);
     setTimeout(() => setRedeemMsg(""), 3000);
   }
+  function redeem(type, kidId) {
     if (type === "individual") {
       const current = clips[kidId] || 0;
       if (current < IND_GOAL) return;
