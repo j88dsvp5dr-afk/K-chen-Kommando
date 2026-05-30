@@ -490,13 +490,13 @@ async function saveKey(key, value) {
 // ---- Claude API call ----
 const ANTHROPIC_KEY = process.env.REACT_APP_ANTHROPIC_KEY || "";
 
-async function askClaude(prompt, maxTokens = 1500) {
+async function askClaude(prompt, maxTokens = 2000) {
   const response = await fetch("/.netlify/functions/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-5",
-      max_tokens: 1000,
+      max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -3213,9 +3213,9 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
 
   async function generate() {
     setBusy(true); setErr("");
-    const stock = freezer.length ? freezer.map((f) => `${f.name} (${f.qty})`).join("; ") : "leer";
-    const pant = pantry.length ? pantry.map((p) => `${p.name} (${p.qty})`).join("; ") : "leer";
-    const saved = recipes.length ? recipes.map((r) => r.title).join("; ") : "keine";
+    const stock = freezer.length ? freezer.slice(0,20).map((f) => `${f.name} (${f.qty})`).join("; ") : "leer";
+    const pant = pantry.length ? pantry.slice(0,20).map((p) => `${p.name} (${p.qty})`).join("; ") : "leer";
+    const saved = recipes.length ? recipes.slice(0,10).map((r) => r.title).join("; ") : "keine";
     const extra = chatInput.trim() ? `\nBesonderer Wunsch: "${chatInput.trim()}"` : "";
     const weekdayRules = Object.entries(WEEKDAY_TAGS).map(([day, t]) =>
       `${day}: max. ${t.maxMin} Min${t.urgent ? ` (⚡ ${t.urgent})` : ""}`
@@ -3238,7 +3238,7 @@ Plane EINEN großen Kochtag, dessen Ergebnisse über mehrere Tage variiert werde
 Nur JSON:
 {"title":"...","summary":"1 Satz Überblick","cookDay":"z.B. Sonntag","cookSession":["Was am Kochtag zubereitet wird"],"days":[{"day":"Montag","meal":"...","note":"...","minutes":Zahl,"isLeftover":true/false,"thawTonight":"was aufgetaut werden muss oder leer"}],"shoppingList":[{"item":"...","amount":"...","cat":"Fleisch/Fisch|Gemüse|Stärke|Milchprodukt (laktosefrei)|Soße/Basis|Brot|Sonstiges"}]}`;
     try {
-      const txt = await askClaude(prompt);
+      const txt = await askClaude(prompt, 2500);
       const p = parseJSON(txt);
       setPlan(p);
       setChatInput("");
