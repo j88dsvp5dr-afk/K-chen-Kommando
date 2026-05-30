@@ -606,9 +606,14 @@ function eaterCount(hh) {
   return (hh.adults || 0) + (hh.kids?.length || 0);
 }
 function householdRules(hh) {
-  if (hh.soloMode) return "WICHTIG: Plane NUR für 1 erwachsene Person (Solo-Modus). Mengen und Portionen entsprechend klein.";
-  const kidsTxt = hh.kids?.length ? `${hh.kids.length} Kinder (Alter ${hh.kids.map((k) => k.age).join(", ")})` : "keine Kinder";
-  return `Haushalt: ${hh.adults} Erwachsene(r) + ${kidsTxt}. Plane Mengen für diesen Haushalt.`;
+  if (!hh) return "";
+  const persons = (hh.adults || 1) + (hh.kids?.length || 0);
+  const maxTimeWd = hh.maxCookTimeWeekday || 30;
+  const maxTimeWe = hh.maxCookTimeWeekend || 60;
+  const maxCost = hh.maxCostPerMeal || 7;
+  const kidsTxt = hh.kids?.length ? `${hh.kids.length} Kinder (${hh.kids.map(k => k.age).join(", ")} J.)` : "";
+  if (hh.soloMode) return `1 Person. Max ${maxTimeWd} Min Wochentags, ${maxTimeWe} Min Wochenende. Max ${maxCost}€/Mahlzeit.`;
+  return `${persons} Personen (${hh.adults} Erw.${kidsTxt ? " + " + kidsTxt : ""}). Max ${maxTimeWd} Min Wochentags, ${maxTimeWe} Min Wochenende. Max ${maxCost}€/Mahlzeit gesamt.`;
 }
 
 function parseJSON(text) {
