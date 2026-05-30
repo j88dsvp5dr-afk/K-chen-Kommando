@@ -1163,7 +1163,7 @@ export default function App() {
           tab === "recipes" ? <Recipes freezer={freezer} setFreezer={setFreezer} pantry={pantry} setPantry={setPantry} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
           tab === "double" ? <DoubleRecipes freezer={freezer} pantry={pantry} setShopping={setShopping} shopping={shopping} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
           tab === "plan" ? <BatchPlan freezer={freezer} setFreezer={setFreezer} pantry={pantry} recipes={recipes} plan={plan} setPlan={setPlan} setShopping={setShopping} shopping={shopping} diet={diet} health={health} household={household} calEvents={calEvents} /> :
-          tab === "week" ? <WeekView plan={plan} setPlan={setPlan} setTab={setTab} freezer={freezer} setFreezer={setFreezer} calEvents={calEvents} recipes={recipes} /> :
+          tab === "week" ? <WeekView plan={plan} setPlan={setPlan} setTab={setTab} freezer={freezer} setFreezer={setFreezer} calEvents={calEvents} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} household={household} /> :
           tab === "handover" ? <WeekHandover freezer={freezer} pantry={pantry} plan={plan} recipes={recipes} setTab={setTab} /> :
           tab === "routines" ? <Routines /> :
           tab === "clips" ? <ClipRewards /> :
@@ -3436,6 +3436,19 @@ Nur JSON:
               🛒 {plan.shoppingList.length} Zutaten → Einkaufsliste
             </button>
           )}
+
+          {/* Alle Rezepte generieren */}
+          <button onClick={generateAllRecipes} disabled={genAllProgress.running} className="kk-btn kk-b"
+            style={{ marginTop: 8, background: genAllProgress.done ? SAGE : ACCENT, color: "#fff", padding: "13px", borderRadius: 12, fontWeight: 700, fontSize: 15, width: "100%", opacity: genAllProgress.running ? 0.85 : 1 }}>
+            {genAllProgress.done ? "✓ Alle Rezepte generiert!" :
+             genAllProgress.running ? `✦ Generiere ${genAllProgress.current}/${genAllProgress.total}…` :
+             "✦ Alle Rezepte dieser Woche generieren"}
+          </button>
+          {genAllProgress.running && (
+            <div style={{ marginTop: 8, background: theme.CARD, borderRadius: 10, height: 8, overflow: "hidden" }}>
+              <div style={{ width: `${(genAllProgress.current / genAllProgress.total) * 100}%`, height: "100%", background: ACCENT, borderRadius: 10, transition: "width 0.5s ease" }} />
+            </div>
+          )}
           {showSkipped && skippedItems.length > 0 && (
             <div style={{ marginTop: 10, background: SAGE + "18", border: `1.5px solid ${SAGE}55`, borderRadius: 12, padding: "12px 14px" }}>
               <div className="kk-b" style={{ fontSize: 14, fontWeight: 700, color: SAGE, marginBottom: 6 }}>
@@ -3637,7 +3650,7 @@ function mealEmoji(meal) {
   return "🍽";
 }
 
-function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recipes }) {
+function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recipes, setRecipes, diet, health, household }) {
   const theme = useTheme();
   const [freezeDay, setFreezeDay] = useState(null);
   const [manualMode, setManualMode] = useState(false);
@@ -3649,6 +3662,55 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const touchStartY = React.useRef(null);
   const touchDragIdx = React.useRef(null);
+
+  const [genAllProgress, setGenAllProgress] = useState({ running: false, current: 0, total: 0, done: false });
+
+  async function generateAllRecipes() {
+    if (!plan?.days?.length) return;
+    const days = plan.days.filter(d => d.meal && d.meal.trim());
+    setGenAllProgress({ running: true, current: 0, total: days.length, done: false });
+
+    const newRecipes = [...(recipes || [])];
+
+    for (let i = 0; i < days.length; i++) {
+      const d = days[i];
+      setGenAllProgress({ running: true, current: i + 1, total: days.length, done: false });
+
+      // Skip if recipe already exists
+      const already = newRecipes.find(r => r.title && d.meal && (
+        r.title.toLowerCase().includes(d.meal.toLowerCase().slice(0, 8)) ||
+        d.meal.toLowerCase().includes(r.title.toLowerCase().slice(0, 8))
+      ));
+      if (already) continue;
+
+      try {
+        const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
+        const persons = household?.persons || 4;
+        const prompt = `Erstelle ein detailliertes Rezept für: "${d.meal}". Für ${persons} Personen. Ernährung: ${dietStr}. Maximal ${d.minutes || 30} Minuten. Nur JSON ohne Markdown:
+{"title":"${d.meal}","portions":${persons},"prepMinutes":${d.minutes||30},"reuse":"Reste-Tipp für Tag 2","estCostPerMeal":"3–6 €","totalCost":"Zahl","costPerPortion":"Zahl","ingredients":[{"item":"Name","amount":"Menge mit Einheit","fromFreezer":false}],"steps":["Schritt 1","Schritt 2"],"nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl}}`;
+
+        const txt = await askClaude(prompt, 1500);
+        const recipe = parseJSON(txt);
+        if (recipe?.title) {
+          recipe.id = Date.now() + i;
+          recipe.fav = false;
+          recipe.rating = 0;
+          recipe.kidsLoved = false;
+          recipe.cookedCount = 0;
+          newRecipes.push(recipe);
+          setRecipes([...newRecipes]);
+        }
+      } catch(e) {
+        // Skip failed recipe, continue with next
+      }
+
+      // Small delay between requests
+      if (i < days.length - 1) await new Promise(r => setTimeout(r, 800));
+    }
+
+    setGenAllProgress({ running: false, current: days.length, total: days.length, done: true });
+    setTimeout(() => setGenAllProgress({ running: false, current: 0, total: 0, done: false }), 4000);
+  }
 
   function swapDays(fromIdx, toIdx) {
     if (fromIdx === toIdx || fromIdx == null || toIdx == null) return;
