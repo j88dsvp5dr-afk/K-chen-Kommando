@@ -1251,7 +1251,7 @@ function DoppelHero({ plan, recipes, setTab }) {
 }
 
 // ---------------- KI-Coach (proaktive Vorschläge) ----------------
-function KICoach({ freezer, pantry, plan, recipes, household, setTab }) {
+function KICoach({ freezer, pantry, plan, recipes, household, setTab, shopping }) {
   const theme = useTheme();
 
   // Vorschläge regelbasiert generieren
@@ -1712,7 +1712,7 @@ function Dashboard({ freezer, setFreezer, pantry, recipes, plan, shopping, setSh
       {!hiddenCards["coach"] && (
         <div style={{ position: "relative" }}>
           <HideBtn id="coach" />
-          <KICoach freezer={freezer} pantry={pantry} plan={plan} recipes={recipes} household={household} setTab={setTab} />
+          <KICoach shopping={shopping} freezer={freezer} pantry={pantry} plan={plan} recipes={recipes} household={household} setTab={setTab} />
         </div>
       )}
 
