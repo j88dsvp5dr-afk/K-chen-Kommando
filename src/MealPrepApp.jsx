@@ -48,7 +48,7 @@ Antworte kurz, praktisch und auf Deutsch. Nutze den Kontext um konkrete Vorschl√
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5",
           max_tokens: 1000,
           system: buildContext(),
           messages: [...history, { role: "user", content: userMsg }]
@@ -479,7 +479,7 @@ async function askClaude(prompt, maxTokens = 1500) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5",
       max_tokens: 1000,
       messages: [{ role: "user", content: prompt }],
     }),
@@ -495,7 +495,7 @@ async function readDateFromImage(base64, mediaType) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5",
       max_tokens: 1000,
       messages: [{
         role: "user",
@@ -517,7 +517,7 @@ async function readReceiptFromImage(base64, mediaType) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5",
       max_tokens: 2000,
       messages: [{
         role: "user",
