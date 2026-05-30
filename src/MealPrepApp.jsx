@@ -3366,16 +3366,26 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
       });
     }
 
+    // Grundzutaten die jeder zuhause hat — nie auf die Einkaufsliste
+    const KITCHEN_STAPLES = ["salz","pfeffer","zucker","öl","olivenöl","wasser","essig","mehl","backpulver","natron","vanille","lorbeer","thymian","oregano","basilikum","petersilie","paprikapulver","zimt","muskat","curry","kurkuma","kreuzkümmel","koriander","chili","cayenne","prise","gewürz","brühe","suppenwürfel","margarine","butter"];
+
+    function isKitchenStaple(name) {
+      const n = (name || "").toLowerCase().trim();
+      return KITCHEN_STAPLES.some(s => n === s || n.startsWith(s + " ") || n.endsWith(" " + s));
+    }
+
     const skipped = [];
     const add = [];
     const seen = new Set();
 
     allItems.forEach((s, i) => {
       const itemName = s.item || s.name || "";
-      const key = itemName.toLowerCase().slice(0, 10);
+      if (!itemName.trim()) return;
+      const key = itemName.toLowerCase().trim().slice(0, 12);
       if (seen.has(key)) return; // Duplikate überspringen
       seen.add(key);
 
+      if (isKitchenStaple(itemName)) return; // Grundzutaten rausfiltern
       if (inStock(itemName)) {
         skipped.push(itemName);
       } else {
@@ -3526,6 +3536,22 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
                     ❄ Heute Abend auftauen: {d.thawTonight}
                   </div>
                 )}
+
+                {/* Chips: Zeit + Resteverwertung + Einfrieren */}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  {d.minutes && <Chip color={SAGE}>⏱ {d.minutes} Min</Chip>}
+                  {d.isLeftover && <Chip color={GOLD}>♻ Resteverwertung</Chip>}
+                  {d.thawTonight?.trim() && <Chip color="#6E8CA0">❄ vorher auftauen</Chip>}
+                  {matchedRecipe && (
+                    <button onClick={() => {
+                      const dd = new Date(); dd.setMonth(dd.getMonth() + 3);
+                      setFreezer(prev => [...prev, { id: Date.now(), name: `${d.meal} (Reste)`, qty: `${matchedRecipe.portions || 3} Port.`, cat: "Fertiggericht", bestBefore: dd.toISOString().slice(0,10) }]);
+                    }} className="kk-btn kk-b"
+                      style={{ background: "transparent", color: "#6E8CA0", border: "1.5px solid #6E8CA044", borderRadius: 14, padding: "3px 9px", fontSize: 12.5, fontWeight: 600 }}>
+                      ❄ einfrieren
+                    </button>
+                  )}
+                </div>
 
                 {/* Passendes Rezept aus gespeicherten Rezepten */}
                 {matchedRecipe && (
