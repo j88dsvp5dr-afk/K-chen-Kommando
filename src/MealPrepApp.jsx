@@ -4411,6 +4411,7 @@ function Routines() {
     { id: "magnesium", label: "Magnesium", emoji: "⚡", note: "Abends — entspannt Muskeln", color: SAGE },
     { id: "omega3", label: "Omega-3", emoji: "🐟", note: "Mit dem Essen", color: "#6E8CA0" },
     { id: "lithium", label: "Lithium", emoji: "🔋", note: "Wie verschrieben — mit Mahlzeit", color: "#8B5CF6" },
+    { id: "pille", label: "Pille", emoji: "💗", note: "Täglich zur gleichen Zeit", color: "#EC4899" },
   ];
 
   useEffect(() => {
