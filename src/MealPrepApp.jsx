@@ -454,10 +454,9 @@ function FoodImage({ title, height = 180, radius = "14px 14px 0 0", style = {} }
 // ---- Storage helpers (persistieren über Sitzungen) ----
 async function loadKey(key, fallback) {
   try {
-    const r = await window.storage.get(key);
-    if (!r || r.value === undefined || r.value === null) return fallback;
-    const parsed = JSON.parse(r.value);
-    // Leere Arrays/Objekte als Fallback behandeln
+    const raw = localStorage.getItem("kk_" + key);
+    if (raw === null || raw === undefined) return fallback;
+    const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length === 0 && Array.isArray(fallback) && fallback.length > 0) return fallback;
     return parsed;
   } catch {
@@ -466,7 +465,7 @@ async function loadKey(key, fallback) {
 }
 async function saveKey(key, value) {
   try {
-    await window.storage.set(key, JSON.stringify(value));
+    localStorage.setItem("kk_" + key, JSON.stringify(value));
   } catch (e) {
     console.error("save failed", e);
   }
