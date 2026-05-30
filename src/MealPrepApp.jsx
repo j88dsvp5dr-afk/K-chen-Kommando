@@ -3260,7 +3260,31 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
   }
 
   function toShopping() {
-    if (!plan?.shoppingList) return;
+    if (!plan?.days?.length && !plan?.shoppingList?.length) return;
+
+    // Alle Zutaten sammeln: aus plan.shoppingList + aus gespeicherten Rezepten die im Plan vorkommen
+    const allItems = [...(plan.shoppingList || [])];
+
+    // Rezept-Zutaten der Plan-Gerichte hinzufügen
+    (plan.days || []).forEach(d => {
+      if (!d.meal) return;
+      const matched = (recipes || []).find(r =>
+        r.title && d.meal && (
+          r.title.toLowerCase().includes(d.meal.toLowerCase().slice(0, 8)) ||
+          d.meal.toLowerCase().includes(r.title.toLowerCase().slice(0, 8))
+        )
+      );
+      if (matched?.ingredients) {
+        matched.ingredients.forEach(ing => {
+          // Nicht doppelt hinzufügen
+          const already = allItems.some(x =>
+            (x.item || x.name || "").toLowerCase().slice(0, 6) ===
+            (ing.item || "").toLowerCase().slice(0, 6)
+          );
+          if (!already) allItems.push({ item: ing.item, amount: ing.amount, cat: "Sonstiges" });
+        });
+      }
+    });
 
     // Vorrats-Abgleich: Namen aus Froster + Vorratsschrank normalisieren
     const stockNames = [
@@ -3270,24 +3294,30 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
 
     function inStock(itemName) {
       const n = (itemName || "").toLowerCase().trim();
-      if (n.length < 4) return false;
+      if (n.length < 3) return false;
       return stockNames.some(s => {
-        if (s.length < 4) return false;
-        // Only match if at least 6 chars overlap or exact word match
-        const minLen = Math.min(n.length, s.length);
-        const matchLen = Math.max(6, Math.floor(minLen * 0.7));
-        return s.includes(n.slice(0, matchLen)) || n.includes(s.slice(0, matchLen));
+        if (s.length < 3) return false;
+        const nWords = n.split(/\s+/);
+        const sWords = s.split(/\s+/);
+        // Match wenn erstes Hauptwort übereinstimmt (mind. 4 Zeichen)
+        return nWords.some(nw => nw.length >= 4 && sWords.some(sw => sw.startsWith(nw) || nw.startsWith(sw)));
       });
     }
 
     const skipped = [];
     const add = [];
+    const seen = new Set();
 
-    plan.shoppingList.forEach((s, i) => {
-      if (inStock(s.item)) {
-        skipped.push(s.item);
+    allItems.forEach((s, i) => {
+      const itemName = s.item || s.name || "";
+      const key = itemName.toLowerCase().slice(0, 10);
+      if (seen.has(key)) return; // Duplikate überspringen
+      seen.add(key);
+
+      if (inStock(itemName)) {
+        skipped.push(itemName);
       } else {
-        add.push({ id: Date.now() + i, name: s.item, amount: s.amount, cat: s.cat || "Sonstiges", done: false });
+        add.push({ id: Date.now() + i, name: itemName, amount: s.amount || "", cat: s.cat || "Sonstiges", done: false });
       }
     });
 
