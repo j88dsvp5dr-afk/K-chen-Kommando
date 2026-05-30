@@ -3260,15 +3260,7 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
     ).join("\n");
 
     const persons = (household?.adults || 1) + (household?.kids?.length || 2);
-    const prompt = `Du bist Meal-Prep-Profi. Analysiere diesen Wochenplan und erstelle eine Batch-Kochsession für Sonntag.
-
-Wochenplan: ${recipeSummary}
-Personen: ${persons}
-
-Aufgabe: Finde die GEMEINSAMEN BASEN die sich für mehrere Gerichte vorkochen lassen (z.B. Reis, Hähnchenbrust, Hackfleisch-Tomaten-Soße, Gemüsebrühe). Gib KONKRETE Kochanweisungen — wie ein Rezept.
-
-Antworte NUR mit JSON (kein Markdown):
-{"bases":[{"name":"z.B. Hähnchenbrust","quantity":"1 kg","method":"180°C Ofen, 60 Min, mit Salz und Öl einreiben","usedFor":["Montag Hähnchenpfanne","Mittwoch Wrap"]},{"name":"z.B. Basmatireis","quantity":"500g","method":"Im Topf: 1 Teil Reis, 1.5 Teile Wasser, 18 Min köcheln, dann 10 Min quellen","usedFor":["Dienstag","Freitag"]}],"tips":["Tipp 1","Tipp 2"]}`;
+    const prompt = `Du bist Meal-Prep-Profi. Analysiere diesen Wochenplan (${persons} Personen) und bestimme was am Sonntag einmalig vorgekocht und eingefroren werden kann — damit man unter der Woche nur noch auftaut und kurz ergänzt.\n\nWochenplan: ${recipeSummary}\n\nREGEL: Nur echte einfrierbare Basen nennen: Proteine (Fleisch, Fisch gegart), Getreide (Reis, Nudeln vorgekocht), Soßen/Eintöpfe. KEINE ganzen Gerichte mit frischem Salat oder rohem Gemüse.\nFür jede Basis: genaue Menge für ${persons} Personen für mehrere Tage, konkrete Zubereitung in 1-2 Sätzen (Temperatur, Zeit, Methode).\n\nAntworte NUR mit JSON:\n{"bases":[{"name":"Hähnchenbrust","quantity":"1 kg","method":"180°C Ofen, 55-60 Min. Mit Salz, Pfeffer und Öl einreiben. Abkühlen, in Stücke schneiden, einfrieren.","usedFor":["Mo Pfanne","Mi Wrap"]},{"name":"Basmatireis","quantity":"600g trocken","method":"1 Teil Reis + 1,5 Teile Wasser. Aufkochen, kleinste Stufe, 18 Min, 10 Min quellen.","usedFor":["Di","Do"]}],"tips":["Alles portionsweise einfrieren — 1 Beutel pro Tag","Salate, Eier und frisches Gemüse immer am jeweiligen Tag frisch"]}`;
 
     try {
       const txt = await askClaude(prompt, 1500);
