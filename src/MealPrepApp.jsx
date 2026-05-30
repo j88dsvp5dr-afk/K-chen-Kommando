@@ -4410,6 +4410,7 @@ function Routines() {
     { id: "vitamin_d", label: "Vitamin D3", emoji: "☀️", note: "Mit fetthaltiger Mahlzeit", color: GOLD },
     { id: "magnesium", label: "Magnesium", emoji: "⚡", note: "Abends — entspannt Muskeln", color: SAGE },
     { id: "omega3", label: "Omega-3", emoji: "🐟", note: "Mit dem Essen", color: "#6E8CA0" },
+    { id: "lithium", label: "Lithium", emoji: "🔋", note: "Wie verschrieben — mit Mahlzeit", color: "#8B5CF6" },
   ];
 
   useEffect(() => {
@@ -4468,6 +4469,22 @@ function Routines() {
 
       {/* 💊 SUPPLEMENTS */}
       <SectionTitle small>💊 Supplements heute</SectionTitle>
+
+      {/* Erinnerungs-Banner wenn noch nicht alle genommen */}
+      {Object.values(pillChecks).filter(Boolean).length < SUPPLEMENTS.length && (
+        <div style={{ background: ACCENT + "15", border: `1.5px solid ${ACCENT}55`, borderRadius: 14, padding: "10px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 22 }}>⏰</span>
+          <div>
+            <div className="kk-b" style={{ fontSize: 14, fontWeight: 700, color: ACCENT }}>
+              Noch {SUPPLEMENTS.length - Object.values(pillChecks).filter(Boolean).length} Supplement{SUPPLEMENTS.length - Object.values(pillChecks).filter(Boolean).length > 1 ? "s" : ""} ausstehend
+            </div>
+            <div className="kk-b" style={{ fontSize: 12.5, color: theme.MUTED }}>
+              Tippe unten zum Abhaken
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card>
         <div className="kk-b" style={{ fontSize: 13, color: theme.MUTED, marginBottom: 10 }}>
           Tippe an was du heute genommen hast — setzt sich automatisch morgen zurück.
