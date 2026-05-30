@@ -3094,6 +3094,8 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [chatInput, setChatInput] = useState("");
+  const [skippedItems, setSkippedItems] = React.useState([]);
+  const [showSkipped, setShowSkipped] = React.useState(false);
   const [chatMode, setChatMode] = useState(false);
 
   async function generate() {
@@ -3136,8 +3138,32 @@ Nur JSON:
 
   function toShopping() {
     if (!plan?.shoppingList) return;
-    const add = plan.shoppingList.map((s, i) => ({ id: Date.now() + i, name: s.item, amount: s.amount, cat: s.cat || "Sonstiges", done: false }));
+
+    // Vorrats-Abgleich: Namen aus Froster + Vorratsschrank normalisieren
+    const stockNames = [
+      ...freezer.map(f => (f.name || "").toLowerCase().trim()),
+      ...pantry.map(p => (p.name || "").toLowerCase().trim()),
+    ];
+
+    function inStock(itemName) {
+      const n = (itemName || "").toLowerCase().trim();
+      return stockNames.some(s => s.includes(n.slice(0, 5)) || n.includes(s.slice(0, 5)));
+    }
+
+    const skipped = [];
+    const add = [];
+
+    plan.shoppingList.forEach((s, i) => {
+      if (inStock(s.item)) {
+        skipped.push(s.item);
+      } else {
+        add.push({ id: Date.now() + i, name: s.item, amount: s.amount, cat: s.cat || "Sonstiges", done: false });
+      }
+    });
+
     setShopping([...shopping, ...add]);
+    setSkippedItems(skipped);
+    setShowSkipped(true);
   }
 
   return (
@@ -3296,6 +3322,20 @@ Nur JSON:
               style={{ marginTop: 4, background: DEEP, color: PAPER, padding: "13px", borderRadius: 12, fontWeight: 700, fontSize: 16, width: "100%" }}>
               🛒 {plan.shoppingList.length} Zutaten → Einkaufsliste
             </button>
+          )}
+          {showSkipped && skippedItems.length > 0 && (
+            <div style={{ marginTop: 10, background: SAGE + "18", border: `1.5px solid ${SAGE}55`, borderRadius: 12, padding: "12px 14px" }}>
+              <div className="kk-b" style={{ fontSize: 14, fontWeight: 700, color: SAGE, marginBottom: 6 }}>
+                ✓ {skippedItems.length} bereits im Vorrat — nicht auf die Liste:
+              </div>
+              {skippedItems.map((item, i) => (
+                <div key={i} className="kk-b" style={{ fontSize: 13, color: SAGE, padding: "2px 0" }}>· {item}</div>
+              ))}
+              <button onClick={() => setShowSkipped(false)} className="kk-btn kk-b"
+                style={{ marginTop: 8, fontSize: 12, color: SAGE, background: "transparent", padding: 0, fontWeight: 600 }}>
+                × schließen
+              </button>
+            </div>
           )}
         </>
       )}
