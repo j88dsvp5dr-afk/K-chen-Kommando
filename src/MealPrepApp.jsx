@@ -815,80 +815,16 @@ export default function App() {
       shoppingList: [],
     };
 
-    const savedRecipes = await loadKey("recipes", null);
-    if (!savedRecipes || savedRecipes.length === 0) {
-      setRecipes(WOCHE4_RECIPES);
-      await saveKey("recipes", WOCHE4_RECIPES);
-    } else {
-      setRecipes(savedRecipes);
-    }
+    setRecipes(await loadKey("recipes", []));
+    setPlan(await loadKey("plan", null));
 
-    const savedPlan = await loadKey("plan", null);
-    if (!savedPlan || !savedPlan.days) {
-      setPlan(WOCHE4_PLAN);
-      await saveKey("plan", WOCHE4_PLAN);
-    } else {
-      setPlan(savedPlan);
-    }
+    setShopping(await loadKey("shopping", []));
 
-    // Einkaufsliste Woche 4: beim ersten Start vorbelegen (nur frische Artikel, keine Stammartikel)
-    const WOCHE4_SHOPPING = [
-      { id: 1, name: "Hähnchenbrustfilet 400g", amount: "1 Pck.", cat: "Fleisch/Fisch", done: false },
-      { id: 2, name: "Hackfleisch gemischt 500g G&G", amount: "1 Pck.", cat: "Fleisch/Fisch", done: false },
-      { id: 3, name: "Wiener Würstchen G&G 5er", amount: "1 Pck.", cat: "Fleisch/Fisch", done: false },
-      { id: 4, name: "Schinkenwürfel G&G 2×125g", amount: "1 Pck.", cat: "Fleisch/Fisch", done: false },
-      { id: 5, name: "Speckwürfel G&G 150g", amount: "1 Pck.", cat: "Fleisch/Fisch", done: false },
-      { id: 6, name: "Hokkaido Kürbis 1kg", amount: "1 kg", cat: "Gemüse", done: false },
-      { id: 7, name: "Frühkartoffeln festkochend 1kg", amount: "1 kg", cat: "Gemüse", done: false },
-      { id: 8, name: "Möhren 500g", amount: "500g", cat: "Gemüse", done: false },
-      { id: 9, name: "Paprika Mix 500g", amount: "500g", cat: "Gemüse", done: false },
-      { id: 10, name: "Ingwer frisch", amount: "1 Stück", cat: "Gemüse", done: false },
-      { id: 11, name: "Schnittlauch frisch", amount: "1 Bund", cat: "Gemüse", done: false },
-      { id: 12, name: "Zwiebeln & Knoblauch", amount: "je 1", cat: "Gemüse", done: false },
-      { id: 13, name: "Spaghetti G&G 500g", amount: "1 Pck.", cat: "Stärke", done: false },
-      { id: 14, name: "Langkornreis G&G 1kg", amount: "1 Pck.", cat: "Stärke", done: false },
-      { id: 15, name: "Weizenmehl G&G 1kg", amount: "1 Pck.", cat: "Stärke", done: false },
-      { id: 16, name: "Vollkornbrot G&G 500g", amount: "1 Pck.", cat: "Brot", done: false },
-      { id: 17, name: "Passata 500ml", amount: "1 Fl.", cat: "Soße/Basis", done: false },
-      { id: 18, name: "Tomatenmark G&G 70g", amount: "1 Pck.", cat: "Soße/Basis", done: false },
-      { id: 19, name: "Kokosmilch 400ml", amount: "1 Dose", cat: "Soße/Basis", done: false },
-      { id: 20, name: "Gemüsebrühe G&G", amount: "1 Pck.", cat: "Soße/Basis", done: false },
-      { id: 21, name: "Sojasoße klein", amount: "1 Fl.", cat: "Soße/Basis", done: false },
-      { id: 22, name: "Trockenhefe G&G", amount: "1 Pck.", cat: "Sonstiges", done: false },
-      { id: 23, name: "Eier G&G 10er", amount: "10 Stück", cat: "Sonstiges", done: false },
-      { id: 24, name: "LF Crème fraîche Schwarzwaldmilch 150g", amount: "1 Pck.", cat: "Milchprodukt (laktosefrei)", done: false },
-      { id: 25, name: "LF Magerquark 500g", amount: "1 Pck.", cat: "Milchprodukt (laktosefrei)", done: false },
-      { id: 26, name: "LF Saure Sahne 200g", amount: "1 Pck.", cat: "Milchprodukt (laktosefrei)", done: false },
-      { id: 27, name: "Parmesan gerieben 50g", amount: "1 Pck.", cat: "Milchprodukt (laktosefrei)", done: false },
-      { id: 28, name: "Edeka Bio Gouda gerieben 150g", amount: "1 Pck.", cat: "Milchprodukt (laktosefrei)", done: false },
-    ];
-    const savedShopping = await loadKey("shopping", null);
-    if (!savedShopping || savedShopping.length === 0) {
-      setShopping(WOCHE4_SHOPPING);
-      await saveKey("shopping", WOCHE4_SHOPPING);
-    } else {
-      setShopping(savedShopping);
-    }
-
-    // Stammartikel: beim ersten Start mit Picnic-Daten vorbelegen
-    const savedStaples = await loadKey("staples", null);
-    if (!savedStaples || savedStaples.length === 0) {
-      setStaples(PICNIC_STAPLES);
-      await saveKey("staples", PICNIC_STAPLES);
-    } else {
-      setStaples(savedStaples);
-    }
+    setStaples(await loadKey("staples", []));
 
     setHistory(await loadKey("history", []));
 
-    // Preise: beim ersten Start mit Picnic-Preisen vorbelegen
-    const savedPrices = await loadKey("prices", null);
-    if (!savedPrices || Object.keys(savedPrices).length === 0) {
-      setPrices(PICNIC_PRICES);
-      await saveKey("prices", PICNIC_PRICES);
-    } else {
-      setPrices(savedPrices);
-    }
+    setPrices(await loadKey("prices", {}));
 
     setDiet(await loadKey("diet", { laktosefrei: true }));
     setHealth(await loadKey("health", {}));
