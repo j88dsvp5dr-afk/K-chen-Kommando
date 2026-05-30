@@ -1982,6 +1982,92 @@ function Pantry({ pantry, setPantry, shopping, setShopping }) {
   const [editId, setEditId] = useState(null);
   const [editAmount, setEditAmount] = useState("");
   const [editUnit, setEditUnit] = useState("g");
+  const [scanning, setScanning] = useState(false);
+  const [scanMsg, setScanMsg] = useState("");
+  const videoRef = React.useRef(null);
+  const streamRef = React.useRef(null);
+  const detectorRef = React.useRef(null);
+  const scanIntervalRef = React.useRef(null);
+
+  async function startScan() {
+    setScanning(true);
+    setScanMsg("Kamera wird gestartet…");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      // Use BarcodeDetector if available (Chrome/Android)
+      if ("BarcodeDetector" in window) {
+        detectorRef.current = new window.BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
+        setScanMsg("Barcode vor die Kamera halten…");
+        scanIntervalRef.current = setInterval(async () => {
+          if (!videoRef.current) return;
+          try {
+            const barcodes = await detectorRef.current.detect(videoRef.current);
+            if (barcodes.length > 0) {
+              stopScan();
+              await lookupBarcode(barcodes[0].rawValue);
+            }
+          } catch(e) {}
+        }, 500);
+      } else {
+        setScanMsg("Barcode-Scanner nicht verfügbar — bitte manuell eingeben.");
+        setTimeout(() => stopScan(), 3000);
+      }
+    } catch(e) {
+      setScanMsg("Kamera-Zugriff verweigert.");
+      setTimeout(() => stopScan(), 2000);
+    }
+  }
+
+  function stopScan() {
+    setScanning(false);
+    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+  }
+
+  async function lookupBarcode(barcode) {
+    setScanMsg(`Suche Produkt für ${barcode}…`);
+    setScanning(false);
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=product_name,quantity,product_name_de,categories_tags`);
+      const data = await res.json();
+      if (data.status === 1 && data.product) {
+        const p = data.product;
+        const productName = p.product_name_de || p.product_name || "";
+        const quantity = p.quantity || "";
+        // Parse quantity like "500 g" or "1 kg"
+        const qMatch = quantity.match(/([d.,]+)s*(g|kg|ml|l|cl)/i);
+        if (qMatch) {
+          setAmount(qMatch[1].replace(",", "."));
+          setUnit(qMatch[2].toLowerCase() === "cl" ? "ml" : qMatch[2].toLowerCase());
+        }
+        setName(productName);
+        // Auto-detect category from tags
+        const tags = (p.categories_tags || []).join(" ").toLowerCase();
+        if (tags.includes("pasta") || tags.includes("noodle") || tags.includes("nudel") || tags.includes("rice") || tags.includes("reis") || tags.includes("mehl") || tags.includes("flour") || tags.includes("cereal")) setCat("Getreide & Nudeln");
+        else if (tags.includes("milk") || tags.includes("milch") || tags.includes("yogurt") || tags.includes("joghurt") || tags.includes("cheese") || tags.includes("käse")) setCat("Milchprodukt (laktosefrei)");
+        else if (tags.includes("canned") || tags.includes("konserv") || tags.includes("tomato") || tags.includes("tomate") || tags.includes("bean") || tags.includes("bohne")) setCat("Konserven & Gläser");
+        else if (tags.includes("oil") || tags.includes("öl") || tags.includes("spice") || tags.includes("gewürz") || tags.includes("sauce")) setCat("Öle & Gewürze");
+        else if (tags.includes("bread") || tags.includes("brot") || tags.includes("biscuit") || tags.includes("keks")) setCat("Brot & Backwaren");
+        else if (tags.includes("meat") || tags.includes("fleisch") || tags.includes("fish") || tags.includes("fisch")) setCat("Fleisch & Fisch");
+        setScanMsg(`✓ Gefunden: ${productName}`);
+        setTimeout(() => setScanMsg(""), 3000);
+      } else {
+        setScanMsg("Produkt nicht gefunden — bitte manuell eingeben.");
+        setTimeout(() => setScanMsg(""), 3000);
+      }
+    } catch(e) {
+      setScanMsg("Fehler beim Suchen — bitte manuell eingeben.");
+      setTimeout(() => setScanMsg(""), 3000);
+    }
+  }
 
   function add() {
     if (!name.trim()) return;
@@ -2025,10 +2111,32 @@ function Pantry({ pantry, setPantry, shopping, setShopping }) {
               {PANTRY_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
           </div>
-          <button onClick={add} className="kk-btn kk-b" style={{ background: ACCENT, color: "#fff", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 16 }}>
-            + In den Vorrat
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={add} className="kk-btn kk-b" style={{ flex: 1, background: ACCENT, color: "#fff", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 16 }}>
+              + In den Vorrat
+            </button>
+            <button onClick={scanning ? stopScan : startScan} className="kk-btn kk-b"
+              style={{ background: scanning ? SAGE : theme.CARD, color: scanning ? "#fff" : theme.TEXT, border: `1.5px solid ${scanning ? SAGE : theme.BORDER}`, padding: "11px 14px", borderRadius: 10, fontWeight: 700, fontSize: 18 }}>
+              {scanning ? "⏹" : "📷"}
+            </button>
+          </div>
         </div>
+
+        {/* Barcode Scanner Video */}
+        {scanning && (
+          <div style={{ marginTop: 12, borderRadius: 12, overflow: "hidden", position: "relative", background: "#000" }}>
+            <video ref={videoRef} style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} playsInline muted />
+            <div style={{ position: "absolute", bottom: 8, left: 0, right: 0, textAlign: "center" }}>
+              <div className="kk-b" style={{ background: "rgba(0,0,0,0.6)", color: "#fff", padding: "6px 14px", borderRadius: 20, display: "inline-block", fontSize: 13 }}>
+                {scanMsg || "Barcode vor die Kamera halten…"}
+              </div>
+            </div>
+            <div style={{ position: "absolute", top: "50%", left: "10%", right: "10%", height: 2, background: ACCENT, opacity: 0.8, transform: "translateY(-50%)" }} />
+          </div>
+        )}
+        {scanMsg && !scanning && (
+          <div className="kk-b" style={{ marginTop: 8, fontSize: 13, color: scanMsg.startsWith("✓") ? SAGE : ACCENT, fontWeight: 600 }}>{scanMsg}</div>
+        )}
       </Card>
 
       {grouped.length === 0 ? (
