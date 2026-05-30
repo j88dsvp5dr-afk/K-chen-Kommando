@@ -3227,20 +3227,9 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
     const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
     const healthStr = Object.entries(health || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "";
 
-    const prompt = `Erstelle einen Wochen-Batch-Plan.
-
-${householdRules(household)} ${dietRules(diet)} ${healthRules(health)}${extra}
-WOCHENTAGS-REGELN: ${weekdayRules}${eventRules}
-Gefrierbestand: ${stock}. Vorratsschrank: ${pant}.
-
-WICHTIG für Rezepte:
-- Küchenchef-Qualität: besondere Würzkombinationen, Profi-Tricks, nicht langweilig
-- Kinder mögen es (Hanna 12, Timo 10): lecker, nicht zu scharf, ansprechend
-- Jedes Rezept: exakte Mengen in g/ml, Schritt-für-Schritt, Profi-Tipp am Ende
-- Ernährung beachten: ${dietStr}${healthStr ? ", " + healthStr : ""}
-
-Nur JSON:
-{"title":"...","summary":"1 Satz","cookDay":"Sonntag","cookSession":["Was vorbereitet wird"],"days":[{"day":"Montag","meal":"...","note":"...","minutes":30,"isLeftover":false,"thawTonight":""}],"shoppingList":[{"item":"...","amount":"...","cat":"Gemüse"}]}`;
+    const prompt = `Familien-Wochenplan. ${householdRules(household)} ${dietRules(diet)} ${healthRules(health)}${extra}
+TK: ${stock}. Vorrat: ${pant}. Regeln: ${weekdayRules}
+Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["1 Tipp"],"days":[{"day":"Mo","meal":"Gericht","note":"kurz","minutes":25,"isLeftover":false,"thawTonight":""}],"shoppingList":[{"item":"...","amount":"...","cat":"Gemüse"}]}`;
 
     try {
       const txt = await askClaude(prompt, 3500);
