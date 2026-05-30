@@ -848,7 +848,7 @@ export default function App() {
     setHealth(await loadKey("health", {}));
     setKidsProfile(await loadKey("kidsProfile", {}));
     setGamification(await loadKey("gamification", { xp: 0, achievements: [], totalCooked: 0, noWasteDays: 0, weekUnder25: 0, totalFrozen: 0, savedRecipes: 0, cookStreak: 0, doubleRecipes: 0, routineWeeks: 0, kidsLoved: 0 }));
-    setHousehold(await loadKey("household", { adults: 1, kids: [{ age: 13 }, { age: 11 }], soloMode: false }));
+    setHousehold(await loadKey("household", { adults: 1, kids: [{ age: 13 }, { age: 11 }], soloMode: false, maxCookTimeWeekday: 30, maxCookTimeWeekend: 60, maxCostPerMeal: 7 }));
     setBudget(await loadKey("budget", { monthly: 400, expenses: [] }));
     const onb = await loadKey("onboarding_done", false);
     setOnboardingDone(!!onb);
@@ -5962,6 +5962,47 @@ function Settings({ diet, setDiet, health, setHealth, kidsProfile, setKidsProfil
         </div>
         <div className="kk-b" style={{ fontSize: 13.5, color: SAGE, fontWeight: 600, marginTop: 12, paddingTop: 10, borderTop: "1px solid #00000010" }}>
           → Geplant wird aktuell für {household.soloMode ? "1 Person (Solo)" : `${household.adults} Erw. + ${household.kids?.length || 0} Kinder`}
+        </div>
+      </Card>
+
+      {/* Kochzeit & Kosten */}
+      <SectionTitle small>⏱ Kochzeit & Budget</SectionTitle>
+      <Card>
+        <div style={{ marginBottom: 14 }}>
+          <div className="kk-b" style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Max. Kochzeit unter der Woche</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[20, 30, 45, 60].map(t => (
+              <button key={t} onClick={() => setHousehold({ ...household, maxCookTimeWeekday: t })} className="kk-btn kk-b"
+                style={{ padding: "8px 16px", borderRadius: 20, background: (household.maxCookTimeWeekday || 30) === t ? ACCENT : theme.CARD2, color: (household.maxCookTimeWeekday || 30) === t ? "#fff" : theme.TEXT, border: `1.5px solid ${(household.maxCookTimeWeekday || 30) === t ? ACCENT : theme.BORDER}`, fontWeight: 700, fontSize: 14 }}>
+                {t} Min
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <div className="kk-b" style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Max. Kochzeit am Wochenende</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[30, 45, 60, 90].map(t => (
+              <button key={t} onClick={() => setHousehold({ ...household, maxCookTimeWeekend: t })} className="kk-btn kk-b"
+                style={{ padding: "8px 16px", borderRadius: 20, background: (household.maxCookTimeWeekend || 60) === t ? SAGE : theme.CARD2, color: (household.maxCookTimeWeekend || 60) === t ? "#fff" : theme.TEXT, border: `1.5px solid ${(household.maxCookTimeWeekend || 60) === t ? SAGE : theme.BORDER}`, fontWeight: 700, fontSize: 14 }}>
+                {t} Min
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="kk-b" style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Max. Kosten pro Mahlzeit (gesamt)</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[5, 7, 10, 15, 20].map(c => (
+              <button key={c} onClick={() => setHousehold({ ...household, maxCostPerMeal: c })} className="kk-btn kk-b"
+                style={{ padding: "8px 16px", borderRadius: 20, background: (household.maxCostPerMeal || 7) === c ? GOLD : theme.CARD2, color: (household.maxCostPerMeal || 7) === c ? "#fff" : theme.TEXT, border: `1.5px solid ${(household.maxCostPerMeal || 7) === c ? GOLD : theme.BORDER}`, fontWeight: 700, fontSize: 14 }}>
+                {c}€
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="kk-b" style={{ fontSize: 13, color: SAGE, marginTop: 12, paddingTop: 10, borderTop: "1px solid #00000010" }}>
+          → KI berücksichtigt diese Werte bei jedem Rezept automatisch
         </div>
       </Card>
 
