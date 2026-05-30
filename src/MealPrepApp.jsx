@@ -2202,6 +2202,15 @@ function Freezer({ freezer, setFreezer, setTab, diet, health, kidsProfile, house
   const [resteIdea, setResteIdea] = useState("");
   const [resteLoading, setResteLoading] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editQty, setEditQty] = useState("");
+  const [editBb, setEditBb] = useState("");
+
+  function saveEdit(id) {
+    setFreezer(freezer.map(f => f.id === id ? { ...f, name: editName, qty: editQty, bestBefore: editBb || null } : f));
+    setEditId(null);
+  }
 
   function add() {
     if (!name.trim()) return;
@@ -2349,21 +2358,38 @@ Was kann ich daraus heute schnell kochen? Gib mir 3 kreative Ideen in 1-2 Sätze
             const fs = freshnessStatus(f.bestBefore);
             const atRisk = fs.level === "red" || fs.level === "orange" || fs.level === "expired";
             return (
-              <div key={f.id} className="kk-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: fs.level === "green" ? "#EFF6EE" : fs.level === "orange" ? "#FFF8EE" : (fs.level === "red" || fs.level === "expired") ? "#FCEEEC" : theme.CARD, border: `1.5px solid ${fs.level === "green" ? "#5C6B5244" : atRisk ? fs.color : theme.BORDER}`, borderLeft: `5px solid ${fs.level === "none" ? CAT_COLORS[c] : fs.color}`, borderRadius: 12, padding: "10px 12px", marginBottom: 6 }}>
-                <div style={{ flex: 1 }}>
-                  <div className="kk-b" style={{ fontSize: 16, fontWeight: 600 }}>
-                    <span style={{ fontSize: 12, marginRight: 5 }}>{fs.dot}</span>{f.name}
+              <div key={f.id} className="kk-card" style={{ background: fs.level === "green" ? "#EFF6EE" : fs.level === "orange" ? "#FFF8EE" : (fs.level === "red" || fs.level === "expired") ? "#FCEEEC" : theme.CARD, border: `1.5px solid ${fs.level === "green" ? "#5C6B5244" : atRisk ? fs.color : theme.BORDER}`, borderLeft: `5px solid ${fs.level === "none" ? CAT_COLORS[c] : fs.color}`, borderRadius: 12, padding: "10px 12px", marginBottom: 6 }}>
+                {editId === f.id ? (
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Name" style={{ ...inp, fontSize: 14, padding: "6px 10px", background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }} />
+                    <input value={editQty} onChange={e => setEditQty(e.target.value)} placeholder="Menge z.B. 500g" style={{ ...inp, fontSize: 14, padding: "6px 10px", background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }} />
+                    <input type="date" value={editBb} onChange={e => setEditBb(e.target.value)} style={{ ...inp, fontSize: 14, padding: "6px 10px", background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }} />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => saveEdit(f.id)} className="kk-btn kk-b" style={{ flex: 1, background: SAGE, color: "#fff", padding: "7px", borderRadius: 8, fontWeight: 700 }}>✓ Speichern</button>
+                      <button onClick={() => setEditId(null)} className="kk-btn kk-b" style={{ background: "transparent", color: theme.MUTED, padding: "7px 12px", borderRadius: 8 }}>× Abbrechen</button>
+                    </div>
                   </div>
-                  <div className="kk-b" style={{ fontSize: 13.5, opacity: 0.6 }}>
-                    {f.qty}{f.bestBefore ? ` · MHD ${formatDate(f.bestBefore)}` : ""}
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ flex: 1 }}>
+                      <div className="kk-b" style={{ fontSize: 16, fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, marginRight: 5 }}>{fs.dot}</span>{f.name}
+                      </div>
+                      <div className="kk-b" style={{ fontSize: 13.5, opacity: 0.6 }}>
+                        {f.qty}{f.bestBefore ? ` · MHD ${formatDate(f.bestBefore)}` : ""}
+                      </div>
+                    </div>
+                    {f.bestBefore && (
+                      <span className="kk-b" style={{ fontSize: 13, fontWeight: 700, color: fs.color, background: "#fff", border: `1px solid ${fs.color}`, borderRadius: 12, padding: "3px 8px", marginRight: 8, whiteSpace: "nowrap" }}>
+                        {fs.label}
+                      </span>
+                    )}
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => { setEditId(f.id); setEditName(f.name); setEditQty(f.qty || ""); setEditBb(f.bestBefore || ""); }} className="kk-btn kk-b" style={{ background: "transparent", color: GOLD, border: `1.5px solid ${GOLD}`, borderRadius: 14, fontSize: 13, fontWeight: 700, padding: "4px 9px" }}>✏</button>
+                      <button onClick={() => remove(f.id)} className="kk-btn kk-b" style={{ background: "transparent", color: ACCENT, fontSize: 22, padding: "0 6px", lineHeight: 1 }}>×</button>
+                    </div>
                   </div>
-                </div>
-                {f.bestBefore && (
-                  <span className="kk-b" style={{ fontSize: 13, fontWeight: 700, color: fs.color, background: "#fff", border: `1px solid ${fs.color}`, borderRadius: 12, padding: "3px 8px", marginRight: 8, whiteSpace: "nowrap" }}>
-                    {fs.label}
-                  </span>
                 )}
-                <button onClick={() => remove(f.id)} className="kk-btn kk-b" style={{ background: "transparent", color: ACCENT, fontSize: 22, padding: "0 6px", lineHeight: 1 }}>×</button>
               </div>
             );
           })}
