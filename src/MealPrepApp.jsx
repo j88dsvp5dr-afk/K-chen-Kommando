@@ -46,7 +46,7 @@ Antworte kurz, praktisch und auf Deutsch. Nutze den Kontext um konkrete VorschlÃ
       const history = messages.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text }));
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1000,
@@ -472,10 +472,12 @@ async function saveKey(key, value) {
 }
 
 // ---- Claude API call ----
+const ANTHROPIC_KEY = process.env.REACT_APP_ANTHROPIC_KEY || "";
+
 async function askClaude(prompt, maxTokens = 1500) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
