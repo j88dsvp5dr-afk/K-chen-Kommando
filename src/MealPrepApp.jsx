@@ -564,8 +564,14 @@ function fileToBase64(file) {
 // Kinder-Profil-Regeln für KI-Prompts
 function kidsRules(kidsProfile) {
   const active = KIDS_PROFILES.filter((o) => kidsProfile[o.key]);
-  if (active.length === 0) return "";
-  return "KINDER-PROFIL: " + active.map((o) => o.prompt).join(" ") + " Bewerte jeden Rezeptvorschlag mit einem Kinder-Akzeptanz-Score 1-10.";
+  const hannaDislikes = (kidsProfile?.hannaDislikes || []).join(", ");
+  const timoDislikes = (kidsProfile?.timoDislikes || []).join(", ");
+  const dislikeStr = [
+    hannaDislikes ? `Hanna mag NICHT: ${hannaDislikes}.` : "",
+    timoDislikes ? `Timo mag NICHT: ${timoDislikes}.` : "",
+  ].filter(Boolean).join(" ");
+  const base = active.length > 0 ? "KINDER-PROFIL: " + active.map((o) => o.prompt).join(" ") + " Bewerte jeden Rezeptvorschlag mit einem Kinder-Akzeptanz-Score 1-10." : "";
+  return [base, dislikeStr].filter(Boolean).join(" ");
 }
 
 // Kinder-Score aus Rezept-Daten schätzen (regelbasiert)
@@ -5836,6 +5842,84 @@ function Budget({ budget, setBudget }) {
 }
 
 // ---------------- Settings (Ernährung/Intoleranzen + Haushalt) ----------------
+// Mag-ich-nicht Liste pro Kind
+function KidsDislikeList({ kidsProfile, setKidsProfile }) {
+  const theme = useTheme();
+  const KIDS = [
+    { id: "hanna", name: "Hanna", emoji: "🌸", color: "#C084FC" },
+    { id: "timo",  name: "Timo",  emoji: "⚡", color: "#60A5FA" },
+  ];
+  const [inputs, setInputs] = React.useState({ hanna: "", timo: "" });
+
+  function getList(kid) {
+    return kidsProfile[kid + "Dislikes"] || [];
+  }
+  function addItem(kid) {
+    const val = inputs[kid].trim();
+    if (!val) return;
+    const list = getList(kid);
+    if (list.includes(val)) { setInputs(p => ({ ...p, [kid]: "" })); return; }
+    setKidsProfile(prev => ({ ...prev, [kid + "Dislikes"]: [...list, val] }));
+    setInputs(p => ({ ...p, [kid]: "" }));
+  }
+  function removeItem(kid, item) {
+    setKidsProfile(prev => ({ ...prev, [kid + "Dislikes"]: getList(kid).filter(x => x !== item) }));
+  }
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <SectionTitle small>🙅 Mag-ich-nicht-Liste</SectionTitle>
+      <Card>
+        <div className="kk-b" style={{ fontSize: 13.5, color: theme.MUTED, marginBottom: 12 }}>
+          Was die Kinder ablehnen — die KI vermeidet diese Zutaten automatisch in Rezepten und beim Schulbrot.
+        </div>
+        {KIDS.map(kid => (
+          <div key={kid.id} style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 18 }}>{kid.emoji}</span>
+              <span className="kk-b" style={{ fontSize: 16, fontWeight: 700, color: kid.color }}>{kid.name}</span>
+              {getList(kid.id).length > 0 && (
+                <span className="kk-b" style={{ fontSize: 12, color: theme.MUTED }}>· {getList(kid.id).length} Einträge</span>
+              )}
+            </div>
+            {/* Eingabe */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input
+                value={inputs[kid.id]}
+                onChange={e => setInputs(p => ({ ...p, [kid.id]: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && addItem(kid.id)}
+                placeholder={`z.B. Paprika, Zwiebeln…`}
+                style={{ flex: 1, background: theme.INP_BG, border: `1.5px solid ${theme.INP_BORDER}`, borderRadius: 10, padding: "9px 12px", fontSize: 15, color: theme.TEXT, fontFamily: "inherit", outline: "none" }}
+              />
+              <button
+                onClick={() => addItem(kid.id)}
+                className="kk-btn kk-b"
+                style={{ background: kid.color, color: "#fff", borderRadius: 10, padding: "9px 16px", fontWeight: 700, fontSize: 15, flexShrink: 0 }}
+              >
+                + Hinzufügen
+              </button>
+            </div>
+            {/* Tags */}
+            {getList(kid.id).length === 0 ? (
+              <div className="kk-b" style={{ fontSize: 13, color: theme.MUTED, fontStyle: "italic" }}>Noch nichts eingetragen.</div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {getList(kid.id).map((item, i) => (
+                  <span key={i} style={{ display: "flex", alignItems: "center", gap: 5, background: kid.color + "18", border: `1px solid ${kid.color}44`, borderRadius: 20, padding: "4px 10px 4px 12px" }}>
+                    <span className="kk-b" style={{ fontSize: 13.5, color: kid.color, fontWeight: 600 }}>🙅 {item}</span>
+                    <button onClick={() => removeItem(kid.id, item)} className="kk-btn"
+                      style={{ background: "none", color: kid.color, fontSize: 16, lineHeight: 1, padding: "0 2px", fontWeight: 700, opacity: 0.7 }}>×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
 function Settings({ diet, setDiet, health, setHealth, kidsProfile, setKidsProfile, household, setHousehold, collectBackup, applyBackup, darkMode, setDarkMode }) {
   const theme = useTheme();
   function toggle(key) { setDiet({ ...diet, [key]: !diet[key] }); }
@@ -6057,6 +6141,9 @@ function Settings({ diet, setDiet, health, setHealth, kidsProfile, setKidsProfil
           </div>
         );
       })}
+
+      {/* Mag-ich-nicht Liste */}
+      <KidsDislikeList kidsProfile={kidsProfile} setKidsProfile={setKidsProfile} />
 
       <SectionTitle small>Gesundheit & Erkrankungen</SectionTitle>
       <Card>
