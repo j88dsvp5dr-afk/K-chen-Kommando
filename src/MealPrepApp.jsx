@@ -2347,6 +2347,8 @@ Nur JSON, kein Markdown:
               <option value="cooked">Oft gekocht</option>
             </select>
           </div>
+          </div>
+      )}
           {searchQ && sortedRecipes.length === 0 && (
             <div className="kk-b" style={{ textAlign: "center", padding: "24px 0", color: theme.MUTED, fontSize: 15 }}>
               Kein Rezept mit „{searchQ}" gefunden.
