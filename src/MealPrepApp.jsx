@@ -3259,7 +3259,14 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
 
     function inStock(itemName) {
       const n = (itemName || "").toLowerCase().trim();
-      return stockNames.some(s => s.includes(n.slice(0, 5)) || n.includes(s.slice(0, 5)));
+      if (n.length < 4) return false;
+      return stockNames.some(s => {
+        if (s.length < 4) return false;
+        // Only match if at least 6 chars overlap or exact word match
+        const minLen = Math.min(n.length, s.length);
+        const matchLen = Math.max(6, Math.floor(minLen * 0.7));
+        return s.includes(n.slice(0, matchLen)) || n.includes(s.slice(0, matchLen));
+      });
     }
 
     const skipped = [];
