@@ -1989,43 +1989,48 @@ function Pantry({ pantry, setPantry, shopping, setShopping }) {
   const detectorRef = React.useRef(null);
   const scanIntervalRef = React.useRef(null);
 
+  async function loadZXing() {
+    if (window.__ZXing__) return window.__ZXing__;
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js";
+      s.onload = () => { window.__ZXing__ = window.ZXing; resolve(window.ZXing); };
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
   async function startScan() {
     setScanning(true);
-    setScanMsg("Kamera wird gestartet…");
+    setScanMsg("Lade Scanner…");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-      // Use BarcodeDetector if available (Chrome/Android)
-      if ("BarcodeDetector" in window) {
-        detectorRef.current = new window.BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
-        setScanMsg("Barcode vor die Kamera halten…");
-        scanIntervalRef.current = setInterval(async () => {
-          if (!videoRef.current) return;
-          try {
-            const barcodes = await detectorRef.current.detect(videoRef.current);
-            if (barcodes.length > 0) {
-              stopScan();
-              await lookupBarcode(barcodes[0].rawValue);
-            }
-          } catch(e) {}
-        }, 500);
-      } else {
-        setScanMsg("Barcode-Scanner nicht verfügbar — bitte manuell eingeben.");
-        setTimeout(() => stopScan(), 3000);
-      }
+      const ZXing = await loadZXing();
+      const hints = new Map();
+      const formats = [
+        ZXing.BarcodeFormat.EAN_13,
+        ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.UPC_A,
+        ZXing.BarcodeFormat.UPC_E,
+      ];
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+      const reader = new ZXing.BrowserMultiFormatReader(hints);
+      detectorRef.current = reader;
+      setScanMsg("Barcode vor die Kamera halten…");
+      await reader.decodeFromVideoDevice(null, videoRef.current, (result, err) => {
+        if (result) {
+          stopScan();
+          lookupBarcode(result.getText());
+        }
+      });
     } catch(e) {
-      setScanMsg("Kamera-Zugriff verweigert.");
-      setTimeout(() => stopScan(), 2000);
+      setScanMsg("Kamera-Zugriff verweigert oder nicht verfügbar.");
+      setTimeout(() => stopScan(), 2500);
     }
   }
 
   function stopScan() {
     setScanning(false);
-    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+    if (detectorRef.current?.reset) detectorRef.current.reset();
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
