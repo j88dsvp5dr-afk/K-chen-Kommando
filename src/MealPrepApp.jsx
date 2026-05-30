@@ -6355,3 +6355,4 @@ function freshnessStatus(bestBefore) {
   if (d <= 14) return { level: "orange", color: "#D68910", label: `${d} Tage übrig`, dot: "🟠", days: d };
   return { level: "green", color: "#5C6B52", label: `${d} Tage übrig`, dot: "🟢", days: d };
 }
+// cache bust Sat May 30 14:38:08 UTC 2026
