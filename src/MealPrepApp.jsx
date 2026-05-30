@@ -44,7 +44,7 @@ Antworte kurz, praktisch und auf Deutsch. Nutze den Kontext um konkrete VorschlÃ
 
     try {
       const history = messages.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text }));
-      const response = await fetch("/.netlify/functions/claude", {
+      const response = await fetch("/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -491,7 +491,7 @@ async function saveKey(key, value) {
 const ANTHROPIC_KEY = process.env.REACT_APP_ANTHROPIC_KEY || "";
 
 async function askClaude(prompt, maxTokens = 2000) {
-  const response = await fetch("/.netlify/functions/claude", {
+  const response = await fetch("/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
