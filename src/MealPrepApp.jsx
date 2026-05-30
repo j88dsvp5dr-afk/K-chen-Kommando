@@ -166,6 +166,22 @@ let DEEP = LIGHT.DEEP;
 let PAPER = LIGHT.PAPER;
 
 const CATEGORIES = ["Fleisch/Fisch", "Gemüse", "Stärke", "Milchprodukt (laktosefrei)", "Soße/Basis", "Fertiggericht", "Brot", "Sonstiges"];
+
+const PANTRY_CATEGORIES = [
+  { key: "Getreide & Nudeln", label: "🌾 Getreide & Nudeln", color: "#C9A04A" },
+  { key: "Konserven & Gläser", label: "🥫 Konserven & Gläser", color: "#8A5A44" },
+  { key: "Öle & Gewürze", label: "🫙 Öle & Gewürze", color: "#A8763E" },
+  { key: "Milchprodukt (laktosefrei)", label: "🥛 Milchprodukte (laktosefrei)", color: "#6E8CA0" },
+  { key: "Brot & Backwaren", label: "🍞 Brot & Backwaren", color: "#B5833A" },
+  { key: "Eier & Aufschnitt", label: "🍳 Eier & Aufschnitt", color: "#D4A017" },
+  { key: "Gemüse & Obst", label: "🥦 Gemüse & Obst (frisch)", color: "#5C6B52" },
+  { key: "Fleisch & Fisch", label: "🥩 Fleisch & Fisch", color: "#B5472E" },
+  { key: "Tiefkühl", label: "🧊 Tiefkühl", color: "#6E8CA0" },
+  { key: "Sonstiges", label: "📦 Sonstiges", color: "#6B6259" },
+];
+
+const UNITS = ["g", "kg", "ml", "l", "Stück", "Packung", "Dose", "Flasche", "Bund", "EL", "TL"];
+
 // Reihenfolge nach typischem Supermarkt-Laufweg (Obst/Gemüse zuerst → TK/Kühl zuletzt)
 const MARKET_ORDER = ["Gemüse", "Brot", "Stärke", "Soße/Basis", "Sonstiges", "Milchprodukt (laktosefrei)", "Fleisch/Fisch", "Fertiggericht"];
 const MARKET_AISLE = {
@@ -1960,39 +1976,53 @@ function Dashboard({ freezer, setFreezer, pantry, recipes, plan, shopping, setSh
 function Pantry({ pantry, setPantry, shopping, setShopping }) {
   const theme = useTheme();
   const [name, setName] = useState("");
-  const [qty, setQty] = useState("");
-  const [cat, setCat] = useState("Stärke");
+  const [amount, setAmount] = useState("");
+  const [unit, setUnit] = useState("g");
+  const [cat, setCat] = useState("Getreide & Nudeln");
   const [editId, setEditId] = useState(null);
-  const [editQty, setEditQty] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editUnit, setEditUnit] = useState("g");
 
   function add() {
     if (!name.trim()) return;
-    setPantry([...pantry, { id: Date.now(), name: name.trim(), qty: qty.trim() || "1", cat, low: false }]);
-    setName(""); setQty("");
+    const qty = amount.trim() ? `${amount.trim()} ${unit}` : unit;
+    setPantry([...pantry, { id: Date.now(), name: name.trim(), qty, amount: parseFloat(amount) || 0, unit, cat, low: false }]);
+    setName(""); setAmount("");
   }
+
   function remove(id) { setPantry(pantry.filter((p) => p.id !== id)); }
   function toggleLow(id) { setPantry(pantry.map((p) => p.id === id ? { ...p, low: !p.low } : p)); }
-  function saveEdit(id) { setPantry(pantry.map((p) => p.id === id ? { ...p, qty: editQty } : p)); setEditId(null); }
+
+  function saveEdit(id) {
+    const qty = editAmount.trim() ? `${editAmount.trim()} ${editUnit}` : editUnit;
+    setPantry(pantry.map((p) => p.id === id ? { ...p, qty, amount: parseFloat(editAmount) || 0, unit: editUnit } : p));
+    setEditId(null);
+  }
+
   function addToShopping(p) {
     if (shopping.some((s) => s.name === p.name && !s.done)) return;
     setShopping([...shopping, { id: Date.now(), name: p.name, amount: p.qty || "", cat: p.cat || "Sonstiges", done: false }]);
   }
 
-  const grouped = CATEGORIES.map((c) => [c, pantry.filter((p) => p.cat === c)]).filter(([, arr]) => arr.length);
+  const inpStyle = { ...inp, background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` };
+  const grouped = PANTRY_CATEGORIES.map((c) => [c, pantry.filter((p) => p.cat === c.key)]).filter(([, arr]) => arr.length);
 
   return (
     <div className="kk-pop">
       <SectionTitle>Vorratsschrank</SectionTitle>
       <Card>
-        <div className="kk-b" style={{ fontSize: 14.5, opacity: 0.7, marginBottom: 10, color: theme.TEXT }}>
-          Alles Haltbare: Nudeln, Reis, Konserven, Mehl, Öl, Gewürze. Tippe ✏ um Mengen zu ändern, ⚠ wenn etwas zur Neige geht.
+        <div className="kk-b" style={{ fontSize: 14, opacity: 0.7, marginBottom: 12, color: theme.TEXT }}>
+          Nudeln, Reis, Konserven, Öl, Gewürze — alles Haltbare hier eintragen.
         </div>
         <div style={{ display: "grid", gap: 8 }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Was? z.B. Basmati-Reis" style={{ ...inp, background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={qty} onChange={(e) => setQty(e.target.value)} placeholder="Menge z.B. 2 Pakete" style={{ ...inp, flex: 1, background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }} />
-            <select value={cat} onChange={(e) => setCat(e.target.value)} style={{ ...inp, flex: 1, background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }}>
-              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} placeholder="Was? z.B. Basmati-Reis" style={inpStyle} />
+          <div style={{ display: "flex", gap: 6 }}>
+            <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Menge" style={{ ...inpStyle, flex: 1, minWidth: 0 }} type="number" min="0" />
+            <select value={unit} onChange={(e) => setUnit(e.target.value)} style={{ ...inpStyle, flex: "0 0 80px" }}>
+              {UNITS.map(u => <option key={u}>{u}</option>)}
+            </select>
+            <select value={cat} onChange={(e) => setCat(e.target.value)} style={{ ...inpStyle, flex: 2, minWidth: 0, fontSize: 13 }}>
+              {PANTRY_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
           </div>
           <button onClick={add} className="kk-btn kk-b" style={{ background: ACCENT, color: "#fff", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 16 }}>
@@ -2002,32 +2032,39 @@ function Pantry({ pantry, setPantry, shopping, setShopping }) {
       </Card>
 
       {grouped.length === 0 ? (
-        <div className="kk-b" style={{ textAlign: "center", opacity: 0.5, padding: 30, fontSize: 15, color: theme.TEXT }}>Noch leer — füge oben den ersten Vorrat hinzu.</div>
+        <div className="kk-b" style={{ textAlign: "center", opacity: 0.5, padding: 30, fontSize: 15, color: theme.TEXT }}>Noch leer — füge oben den ersten Artikel hinzu.</div>
       ) : grouped.map(([c, arr]) => (
-        <div key={c} style={{ marginBottom: 14 }}>
-          <div className="kk-b" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: CAT_COLORS[c], marginBottom: 6 }}>
-            {c} <span style={{ opacity: 0.5 }}>({arr.length})</span>
+        <div key={c.key} style={{ marginBottom: 14 }}>
+          <div className="kk-b" style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: c.color, marginBottom: 6 }}>
+            {c.label} <span style={{ opacity: 0.5 }}>({arr.length})</span>
           </div>
           {arr.map((p) => (
-            <div key={p.id} className="kk-card" style={{ background: p.low ? (theme.PAPER === "#F4EDE2" ? "#FFF3EE" : "#2A1410") : theme.CARD, border: `1.5px solid ${p.low ? ACCENT : theme.BORDER}`, borderLeft: `5px solid ${CAT_COLORS[c]}`, borderRadius: 12, padding: "10px 12px", marginBottom: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ flex: 1 }}>
-                  <div className="kk-b" style={{ fontSize: 16, fontWeight: 600, color: theme.TEXT }}>{p.name} {p.low && <span style={{ color: ACCENT, fontSize: 13 }}>⚠ fast leer</span>}</div>
+            <div key={p.id} className="kk-card" style={{ background: p.low ? ACCENT + "12" : theme.CARD, border: `1.5px solid ${p.low ? ACCENT : theme.BORDER}`, borderLeft: `4px solid ${c.color}`, borderRadius: 12, padding: "10px 12px", marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="kk-b" style={{ fontSize: 15, fontWeight: 600, color: theme.TEXT }}>
+                    {p.name} {p.low && <span style={{ color: ACCENT, fontSize: 12 }}>⚠ fast leer</span>}
+                  </div>
                   {editId === p.id ? (
-                    <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                      <input value={editQty} onChange={(e) => setEditQty(e.target.value)} placeholder="Neue Menge" style={{ ...inp, fontSize: 14, padding: "5px 8px", flex: 1, background: theme.INP_BG, color: theme.TEXT }} />
+                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                      <input value={editAmount} onChange={(e) => setEditAmount(e.target.value)} placeholder="Menge" type="number" style={{ ...inpStyle, fontSize: 14, padding: "5px 8px", flex: 1 }} />
+                      <select value={editUnit} onChange={(e) => setEditUnit(e.target.value)} style={{ ...inpStyle, fontSize: 13, padding: "5px 6px", flex: "0 0 70px" }}>
+                        {UNITS.map(u => <option key={u}>{u}</option>)}
+                      </select>
                       <button onClick={() => saveEdit(p.id)} className="kk-btn kk-b" style={{ background: SAGE, color: "#fff", padding: "5px 10px", borderRadius: 8, fontSize: 13, fontWeight: 700 }}>✓</button>
-                      <button onClick={() => setEditId(null)} className="kk-btn kk-b" style={{ background: "transparent", color: theme.TEXT, padding: "5px 8px", fontSize: 13 }}>×</button>
+                      <button onClick={() => setEditId(null)} className="kk-btn kk-b" style={{ color: theme.MUTED, padding: "5px 8px", fontSize: 13 }}>×</button>
                     </div>
                   ) : (
-                    <div className="kk-b" style={{ fontSize: 13.5, opacity: 0.6, color: theme.TEXT }}>{p.qty}</div>
+                    <div className="kk-b" style={{ fontSize: 13, color: p.qty ? SAGE : theme.MUTED, fontWeight: p.qty ? 600 : 400 }}>
+                      {p.qty || "Menge nicht angegeben"}
+                    </div>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                  <button onClick={() => { setEditId(p.id); setEditQty(p.qty || ""); }} className="kk-btn kk-b" style={{ background: "transparent", color: GOLD, border: `1.5px solid ${GOLD}`, borderRadius: 14, fontSize: 13, fontWeight: 700, padding: "4px 9px" }}>✏</button>
-                  <button onClick={() => toggleLow(p.id)} className="kk-btn kk-b" style={{ background: p.low ? ACCENT : "transparent", color: p.low ? "#fff" : ACCENT, border: `1.5px solid ${ACCENT}`, borderRadius: 14, fontSize: 13, fontWeight: 700, padding: "4px 9px" }}>⚠</button>
-                  {p.low && <button onClick={() => addToShopping(p)} className="kk-btn kk-b" style={{ background: theme.DEEP, color: theme.PAPER, borderRadius: 14, fontSize: 13, fontWeight: 600, padding: "4px 9px" }}>+ Einkauf</button>}
-                  <button onClick={() => remove(p.id)} className="kk-btn kk-b" style={{ background: "transparent", color: ACCENT, fontSize: 22, padding: "0 4px", lineHeight: 1 }}>×</button>
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => { setEditId(p.id); setEditAmount(String(p.amount || "")); setEditUnit(p.unit || "g"); }} className="kk-btn kk-b" style={{ background: "transparent", color: GOLD, border: `1.5px solid ${GOLD}`, borderRadius: 14, fontSize: 13, fontWeight: 700, padding: "4px 9px" }}>✏</button>
+                  <button onClick={() => toggleLow(p.id)} className="kk-btn kk-b" style={{ background: p.low ? ACCENT : "transparent", color: p.low ? "#fff" : ACCENT, border: `1.5px solid ${ACCENT}`, borderRadius: 14, fontSize: 13, padding: "4px 9px" }}>⚠</button>
+                  {p.low && <button onClick={() => addToShopping(p)} className="kk-btn kk-b" style={{ background: theme.DEEP, color: theme.PAPER, borderRadius: 14, fontSize: 12, fontWeight: 600, padding: "4px 8px" }}>+ Einkauf</button>}
+                  <button onClick={() => remove(p.id)} className="kk-btn kk-b" style={{ color: ACCENT, fontSize: 20, padding: "0 4px" }}>×</button>
                 </div>
               </div>
             </div>
