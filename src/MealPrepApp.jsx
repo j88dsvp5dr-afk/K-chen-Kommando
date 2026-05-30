@@ -2339,7 +2339,6 @@ Nur JSON, kein Markdown:
               style={{ ...inp, flex: 1, fontSize: 15, padding: "9px 12px", background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }}
             />
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inp, width: "auto", fontSize: 13.5, padding: "5px 8px", background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }}>
-            
               <option value="newest">Neueste zuerst</option>
               <option value="fav">★ Favoriten zuerst</option>
               <option value="rating">Beste Bewertung</option>
@@ -2347,7 +2346,7 @@ Nur JSON, kein Markdown:
               <option value="cooked">Oft gekocht</option>
             </select>
           </div>
-          </div>
+        </div>
       )}
           {searchQ && sortedRecipes.length === 0 && (
             <div className="kk-b" style={{ textAlign: "center", padding: "24px 0", color: theme.MUTED, fontSize: 15 }}>
@@ -4319,12 +4318,6 @@ function Routines() {
           </div>
         )}
       </Card>
-          </div>
-        </div>
-        {!pillTaken && (
-          <div className="kk-pulse" style={{ width: 10, height: 10, borderRadius: "50%", background: ACCENT, flexShrink: 0 }} />
-        )}
-      </button>
 
       {/* Gesamt-Fortschritt */}
       <Card>
