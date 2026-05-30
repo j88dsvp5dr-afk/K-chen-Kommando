@@ -3244,7 +3244,7 @@ Nur JSON:
 
     try {
       // Schritt 1: Wochenplan generieren
-      const txt = await askClaude(prompt, 2500);
+      const txt = await askClaude(prompt, 3500);
       const result = parseJSON(txt);
       setPlan(result);
       setChatInput("");
@@ -3269,7 +3269,7 @@ Nur JSON-Array:
 [{"title":"...","day":"Montag","portions":${persons},"prepMinutes":30,"reuse":"Reste-Tipp","estCostPerMeal":"5-7€","totalCost":"20","costPerPortion":"5","chefTip":"Profi-Trick","ingredients":[{"item":"...","amount":"500g","fromFreezer":false}],"steps":["Schritt mit exakten Mengen"],"nutrition":{"kcal":500,"protein":30,"carbs":50,"fat":15}}]`;
         
         try {
-          const rtxt = await askClaude(recipePrompt, 2500);
+          const rtxt = await askClaude(recipePrompt, 3000);
           const recs = parseJSON(rtxt);
           if (Array.isArray(recs)) allNewRecipes.push(...recs);
         } catch(e) { /* skip failed chunk */ }
