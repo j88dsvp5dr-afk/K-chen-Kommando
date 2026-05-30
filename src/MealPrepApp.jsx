@@ -3361,6 +3361,34 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
     WEEKDAYS.map(d => ({ day: d, meal: "", note: "", minutes: 30, isLeftover: false, thawTonight: "" }))
   );
   const [assignDay, setAssignDay] = useState(null); // welcher Tag bekommt gerade ein Rezept
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+  const touchStartY = React.useRef(null);
+  const touchDragIdx = React.useRef(null);
+
+  function swapDays(fromIdx, toIdx) {
+    if (fromIdx === toIdx || fromIdx == null || toIdx == null) return;
+    if (!plan || !plan.days) return;
+    const newDays = [...plan.days];
+    const sorted2 = [...newDays].sort((a, b) => {
+      const ia = WEEKDAYS.findIndex((w) => (a.day || "").toLowerCase().startsWith(w.toLowerCase().slice(0, 2)));
+      const ib = WEEKDAYS.findIndex((w) => (b.day || "").toLowerCase().startsWith(w.toLowerCase().slice(0, 2)));
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    const fromDay = sorted2[fromIdx];
+    const toDay = sorted2[toIdx];
+    const fi = newDays.findIndex(d => d.day === fromDay.day);
+    const ti = newDays.findIndex(d => d.day === toDay.day);
+    if (fi === -1 || ti === -1) return;
+    // Swap only meal/note/minutes, keep day names
+    const tmpMeal = newDays[fi].meal; const tmpNote = newDays[fi].note; const tmpMin = newDays[fi].minutes;
+    newDays[fi] = { ...newDays[fi], meal: newDays[ti].meal, note: newDays[ti].note, minutes: newDays[ti].minutes };
+    newDays[ti] = { ...newDays[ti], meal: tmpMeal, note: tmpNote, minutes: tmpMin };
+    setPlan({ ...plan, days: newDays });
+    setDragIdx(null); setDragOverIdx(null);
+  }
+
+
 
   const todayName = new Date().toLocaleDateString("de-DE", { weekday: "long" });
   const todayShort = todayName.slice(0, 2).toLowerCase();
@@ -3496,13 +3524,30 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
       {sorted.map((d, i) => {
         const isToday = (d.day || "").toLowerCase().startsWith(todayShort);
         return (
-        <div key={i} className="kk-card" style={{ display: "flex", gap: 12, background: isToday ? SAGE + "18" : theme.CARD, border: `${isToday ? "2.5px" : "1.5px"} solid ${isToday ? SAGE : theme.BORDER}`, borderRadius: 14, padding: "12px 14px", marginBottom: 8, position: "relative" }}>
+        <div key={i}
+          className="kk-card"
+          draggable
+          onDragStart={() => setDragIdx(i)}
+          onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }}
+          onDragEnd={() => swapDays(dragIdx, dragOverIdx)}
+          onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; touchDragIdx.current = i; }}
+          onTouchEnd={(e) => {
+            const endY = e.changedTouches[0].clientY;
+            const diff = endY - touchStartY.current;
+            if (Math.abs(diff) > 40) {
+              const targetIdx = diff > 0 ? Math.min(sorted.length - 1, i + 1) : Math.max(0, i - 1);
+              swapDays(i, targetIdx);
+            }
+            touchStartY.current = null; touchDragIdx.current = null;
+          }}
+          style={{ display: "flex", gap: 12, background: dragOverIdx === i ? SAGE + "28" : (isToday ? SAGE + "18" : theme.CARD), border: `${isToday ? "2.5px" : "1.5px"} solid ${dragOverIdx === i ? SAGE : (isToday ? SAGE : theme.BORDER)}`, borderRadius: 14, padding: "12px 14px", marginBottom: 8, position: "relative", cursor: "grab", transition: "background 0.2s, border 0.2s", opacity: dragIdx === i ? 0.6 : 1 }}>
           {isToday && (
             <div style={{ position: "absolute", top: -1, left: 14, background: SAGE, color: "#fff", fontSize: 12, fontWeight: 900, padding: "2px 10px", borderRadius: "0 0 8px 8px" }} className="kk-b">
               HEUTE
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 46, marginTop: isToday ? 8 : 0 }}>
+            <div style={{ fontSize: 11, opacity: 0.3, marginBottom: 2, letterSpacing: 1 }}>⠿</div>
             <div className="kk-h" style={{ fontSize: 13, fontWeight: 900, color: isToday ? SAGE : ACCENT, textTransform: "uppercase" }}>{(d.day || "").slice(0, 2)}</div>
             <div style={{ fontSize: 24, marginTop: 2 }}>{mealEmoji(d.meal)}</div>
             {WEEKDAY_TAGS[d.day] && <div style={{ fontSize: 14, marginTop: 2 }} title={WEEKDAY_TAGS[d.day].label}>{WEEKDAY_TAGS[d.day].emoji}</div>}
