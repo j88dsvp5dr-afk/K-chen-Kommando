@@ -2472,8 +2472,8 @@ Wunsch: ${extra || "keiner"}.
 
 EIN Batch-Rezept für ${totalPersons} Personen, mehrere Tage haltbar.
 
-Nur JSON, kein Markdown:
-{"title":"...","portions":${totalPersons},"prepMinutes":Zahl,"reuse":"Reste-Idee für Folgetage","ingredients":[{"item":"Name","amount":"EXAKT z.B. 400g oder 200ml oder 3 EL","fromFreezer":true/false}],"steps":["Schritt mit exakten Mengen und Profi-Tipp"],"totalCost":"z.B. 12.50","costPerPortion":"z.B. 2.10","estCostPerMeal":"x–y €","nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl},"savedFromWaste":["welche Artikel gerettet wurden"]}`;
+Nur JSON, kein Markdown — prepMinutes MUSS exakt ${maxTimeWd} sein, nicht mehr:
+{"title":"...","portions":${totalPersons},"prepMinutes":${maxTimeWd},"reuse":"Reste-Idee für Folgetage","ingredients":[{"item":"Name","amount":"EXAKT z.B. 400g oder 200ml oder 3 EL","fromFreezer":true/false}],"steps":["Schritt mit exakten Mengen und Profi-Tipp"],"totalCost":"z.B. 12.50","costPerPortion":"z.B. 2.10","estCostPerMeal":"x–y €","nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl},"savedFromWaste":["welche Artikel gerettet wurden"]}`;
 
     try {
       const generated = [];
@@ -2503,6 +2503,7 @@ Nur JSON, kein Markdown:
       ...(diet.laktosefrei ? ["🥛 Laktosefrei"] : []),
       ...(diet.glutenfrei ? ["🌾 Glutenfrei"] : []),
     ];
+    if (result.prepMinutes > maxTimeWd) result.prepMinutes = maxTimeWd;
     const newRecipe = { ...result, id: Date.now(), cookedCount: 0, fav: false, rating: 0, kidsLoved: false, appliedProfiles };
     setRecipes(prev => [newRecipe, ...prev]);
     setSaved(true);
@@ -3862,11 +3863,13 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
           ...((diet||{}).glutenfrei ? ["🌾 Glutenfrei"] : []),
         ];
         const prompt = `Du bist Profi-Küchenchef. Erstelle ein leckeres, familienfreundliches Rezept für: "${d.meal}". Für ${persons} Personen (Kinder 12 und 10 J.). ${dietStr}. ${healthStr} ${kidsStr} MAX ${d.minutes || maxTime} Min. MAX ${maxCostDay}€ Gesamtkosten. Genaue Mengenangaben in ml/g. Nur JSON ohne Markdown:
-{"title":"${d.meal}","portions":${persons},"prepMinutes":${d.minutes||maxTime},"reuse":"Reste-Tipp für morgen","estCostPerMeal":"X–Y €","totalCost":"Zahl","costPerPortion":"Zahl","ingredients":[{"item":"Name","amount":"Menge mit Einheit","fromFreezer":false}],"steps":["Schritt 1","Schritt 2"],"nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl}}`;
+{"title":"${d.meal}","portions":${persons},"prepMinutes":${d.minutes||maxTime},"_rule":"prepMinutes darf MAXIMAL ${d.minutes||maxTime} sein — niemals mehr","reuse":"Reste-Tipp für morgen","estCostPerMeal":"X–Y €","totalCost":"Zahl","costPerPortion":"Zahl","ingredients":[{"item":"Name","amount":"Menge mit Einheit","fromFreezer":false}],"steps":["Schritt 1","Schritt 2"],"nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl}}`;
 
         const txt = await askClaude(prompt, 1500);
         const recipe = parseJSON(txt);
         if (recipe?.title) {
+          // Enforce time limit — KI überschreibt es manchmal
+          if (recipe.prepMinutes > (d.minutes || maxTime)) recipe.prepMinutes = d.minutes || maxTime;
           recipe.id = Date.now() + i;
           recipe.fav = false;
           recipe.rating = 0;
