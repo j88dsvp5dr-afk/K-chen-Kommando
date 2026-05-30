@@ -1162,7 +1162,7 @@ export default function App() {
           tab === "pantry" ? <Pantry pantry={pantry} setPantry={setPantry} shopping={shopping} setShopping={setShopping} /> :
           tab === "recipes" ? <Recipes freezer={freezer} setFreezer={setFreezer} pantry={pantry} setPantry={setPantry} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
           tab === "double" ? <DoubleRecipes freezer={freezer} pantry={pantry} setShopping={setShopping} shopping={shopping} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
-          tab === "plan" ? <BatchPlan freezer={freezer} setFreezer={setFreezer} pantry={pantry} recipes={recipes} plan={plan} setPlan={setPlan} setShopping={setShopping} shopping={shopping} diet={diet} health={health} household={household} calEvents={calEvents} /> :
+          tab === "plan" ? <BatchPlan freezer={freezer} setFreezer={setFreezer} pantry={pantry} recipes={recipes} plan={plan} setPlan={setPlan} setShopping={setShopping} shopping={shopping} diet={diet} health={health} household={household} calEvents={calEvents} setTab={setTab} /> :
           tab === "week" ? <WeekView plan={plan} setPlan={setPlan} setTab={setTab} freezer={freezer} setFreezer={setFreezer} calEvents={calEvents} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} household={household} /> :
           tab === "handover" ? <WeekHandover freezer={freezer} pantry={pantry} plan={plan} recipes={recipes} setTab={setTab} /> :
           tab === "routines" ? <Routines /> :
@@ -3202,7 +3202,7 @@ Antworte AUSSCHLIESSLICH mit reinem JSON, kein Markdown:
 }
 
 // ---------------- Batch-Plan ----------------
-function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setShopping, shopping, diet, health, household, calEvents }) {
+function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setShopping, shopping, diet, health, household, calEvents, setTab }) {
   const theme = useTheme();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
