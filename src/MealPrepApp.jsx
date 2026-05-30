@@ -1168,7 +1168,7 @@ export default function App() {
           tab === "recipes" ? <Recipes freezer={freezer} setFreezer={setFreezer} pantry={pantry} setPantry={setPantry} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
           tab === "double" ? <DoubleRecipes freezer={freezer} pantry={pantry} setShopping={setShopping} shopping={shopping} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
           tab === "plan" ? <BatchPlan freezer={freezer} setFreezer={setFreezer} pantry={pantry} recipes={recipes} plan={plan} setPlan={setPlan} setShopping={setShopping} shopping={shopping} diet={diet} health={health} household={household} calEvents={calEvents} setTab={setTab} setRecipes={setRecipes} kidsProfile={kidsProfile} /> :
-          tab === "week" ? <WeekView plan={plan} setPlan={setPlan} setTab={setTab} freezer={freezer} setFreezer={setFreezer} calEvents={calEvents} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} household={household} /> :
+          tab === "week" ? <WeekView plan={plan} setPlan={setPlan} setTab={setTab} freezer={freezer} setFreezer={setFreezer} calEvents={calEvents} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} household={household} kidsProfile={kidsProfile} /> :
           tab === "handover" ? <WeekHandover freezer={freezer} pantry={pantry} plan={plan} recipes={recipes} setTab={setTab} /> :
           tab === "routines" ? <Routines /> :
           tab === "clips" ? <ClipRewards /> :
@@ -2839,14 +2839,17 @@ function RecipeView({ r, compact, onUpdate, kidsProfile, onBatchFreeze, freezer,
       </div>
 
       {/* KI-Profil-Badges: welche Regeln waren aktiv */}
-      {r.appliedProfiles && r.appliedProfiles.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, margin: "6px 0 8px" }}>
-          <span className="kk-b" style={{ fontSize: 12, opacity: 0.55, alignSelf: "center" }}>🧠 KI berücksichtigt:</span>
-          {r.appliedProfiles.map((p, i) => (
-            <span key={i} className="kk-b" style={{ fontSize: 12.5, background: SAGE + "18", color: SAGE, border: `1px solid ${SAGE}44`, borderRadius: 10, padding: "2px 8px", fontWeight: 600 }}>{p}</span>
-          ))}
-        </div>
-      )}
+      {(() => {
+        const tags = r.appliedProfiles && r.appliedProfiles.length > 0 ? r.appliedProfiles : null;
+        if (!tags) return null;
+        return (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, margin: "6px 0 8px" }}>
+            {tags.map((p, i) => (
+              <span key={i} className="kk-b" style={{ fontSize: 12, background: SAGE + "18", color: SAGE, border: `1px solid ${SAGE}44`, borderRadius: 10, padding: "2px 7px", fontWeight: 700 }}>{p}</span>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Batch-Modus Button */}
       {!compact && (
@@ -3629,7 +3632,7 @@ function ExpandableRecipe({ matched, freezer, setFreezer, kidsProfile, onUpdate 
   );
 }
 
-function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recipes, setRecipes, diet, health, household }) {
+function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recipes, setRecipes, diet, health, household, kidsProfile }) {
   const theme = useTheme();
   const [freezeDay, setFreezeDay] = useState(null);
   const [manualMode, setManualMode] = useState(false);
@@ -3664,10 +3667,19 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
 
       try {
         const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
-        const persons = household?.persons || 4;
+        const persons = (household?.adults || 1) + (household?.kids || 2);
         const maxCostDay = household?.maxCostPerMeal || 7;
-        const prompt = `Erstelle ein detailliertes Rezept für: "${d.meal}". Für ${persons} Personen. Ernährung: ${dietStr}. MAX ${d.minutes || 30} Min. MAX ${maxCostDay}€ Gesamtkosten. Kinder (12+10 J.) mögen es. Profi-Küchenchef-Qualität. Nur JSON ohne Markdown:
-{"title":"${d.meal}","portions":${persons},"prepMinutes":${d.minutes||30},"reuse":"Reste-Tipp für Tag 2","estCostPerMeal":"3–6 €","totalCost":"Zahl","costPerPortion":"Zahl","ingredients":[{"item":"Name","amount":"Menge mit Einheit","fromFreezer":false}],"steps":["Schritt 1","Schritt 2"],"nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl}}`;
+        const maxTime = household?.maxTimeWeekday || 30;
+        const healthStr = HEALTH_OPTIONS.filter(o => (health||{})[o.key]).map(o => o.prompt).join(" ") || "";
+        const kidsStr = KIDS_PROFILES.filter(o => (kidsProfile||{})[o.key]).map(o => o.prompt).join(" ") || "";
+        const appliedProfiles = [
+          ...HEALTH_OPTIONS.filter(o => (health||{})[o.key]).map(o => `${o.emoji} ${o.label}`),
+          ...KIDS_PROFILES.filter(o => (kidsProfile||{})[o.key]).map(o => `${o.emoji} ${o.label}`),
+          ...((diet||{}).laktosefrei ? ["🥛 Laktosefrei"] : []),
+          ...((diet||{}).glutenfrei ? ["🌾 Glutenfrei"] : []),
+        ];
+        const prompt = `Du bist Profi-Küchenchef. Erstelle ein leckeres, familienfreundliches Rezept für: "${d.meal}". Für ${persons} Personen (Kinder 12 und 10 J.). ${dietStr}. ${healthStr} ${kidsStr} MAX ${d.minutes || maxTime} Min. MAX ${maxCostDay}€ Gesamtkosten. Genaue Mengenangaben in ml/g. Nur JSON ohne Markdown:
+{"title":"${d.meal}","portions":${persons},"prepMinutes":${d.minutes||maxTime},"reuse":"Reste-Tipp für morgen","estCostPerMeal":"X–Y €","totalCost":"Zahl","costPerPortion":"Zahl","ingredients":[{"item":"Name","amount":"Menge mit Einheit","fromFreezer":false}],"steps":["Schritt 1","Schritt 2"],"nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl}}`;
 
         const txt = await askClaude(prompt, 1500);
         const recipe = parseJSON(txt);
@@ -3677,6 +3689,7 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
           recipe.rating = 0;
           recipe.kidsLoved = false;
           recipe.cookedCount = 0;
+          recipe.appliedProfiles = appliedProfiles;
           newRecipes.push(recipe);
           setRecipes([...newRecipes]);
         }
