@@ -3260,46 +3260,34 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
     ).join("\n");
 
     const persons = (household?.adults || 1) + (household?.kids?.length || 2);
-    const prompt = `Du bist Meal-Prep-Profi. Erstelle eine KONKRETE Sonntags-Kochanleitung für diese Woche.
+    const prompt = `Du bist Meal-Prep-Profi. Analysiere diesen Wochenplan und erstelle eine Batch-Kochsession für Sonntag.
 
-Wochenplan:
-${recipeSummary}
+Wochenplan: ${recipeSummary}
+Personen: ${persons}
 
-Aufgabe: Plane den optimalen Kochablauf für Sonntag. Berücksichtige:
-- Was kann parallel auf dem Herd / im Ofen?
-- Was friert gut ein (→ mehrere Portionen vorkochen)?
-- Was erst am jeweiligen Tag frisch zubereiten?
-- Zeitplan mit Uhrzeiten (z.B. Start 14:00)
-- ${persons} Personen
+Aufgabe: Finde die GEMEINSAMEN BASEN die sich für mehrere Gerichte vorkochen lassen (z.B. Reis, Hähnchenbrust, Hackfleisch-Tomaten-Soße, Gemüsebrühe). Gib KONKRETE Kochanweisungen — wie ein Rezept.
 
-Antworte NUR mit JSON:
-{"totalMinutes":Zahl,"startTime":"14:00","steps":[{"time":"14:00","duration":15,"action":"Kurze Beschreibung was zu tun ist","tip":"Profi-Tipp optional"}],"freezeAhead":["Was in größerer Menge vorkochen und einfrieren"],"freshOnDay":["Was besser frisch am jeweiligen Tag zubereiten"]}`;
+Antworte NUR mit JSON (kein Markdown):
+{"bases":[{"name":"z.B. Hähnchenbrust","quantity":"1 kg","method":"180°C Ofen, 60 Min, mit Salz und Öl einreiben","usedFor":["Montag Hähnchenpfanne","Mittwoch Wrap"]},{"name":"z.B. Basmatireis","quantity":"500g","method":"Im Topf: 1 Teil Reis, 1.5 Teile Wasser, 18 Min köcheln, dann 10 Min quellen","usedFor":["Dienstag","Freitag"]}],"tips":["Tipp 1","Tipp 2"]}`;
 
     try {
       const txt = await askClaude(prompt, 1500);
       const guide = parseJSON(txt);
-      if (guide?.steps?.length > 0) {
+      if (guide?.bases?.length > 0) {
         setCookGuide(guide);
       } else {
-        // Fallback: einfache regelbasierte Anleitung aus Plan-Daten
-        const fallbackSteps = [];
-        let time = 14 * 60; // 14:00 in Minuten
-        planRecipes.forEach(p => {
-          const h = Math.floor(time / 60).toString().padStart(2,"0");
-          const m = (time % 60).toString().padStart(2,"0");
-          fallbackSteps.push({ time: `${h}:${m}`, duration: p.minutes || 30, action: `${p.meal} vorbereiten`, tip: `Für ${persons} Personen` });
-          time += (p.minutes || 30) + 5;
-        });
-        setCookGuide({ totalMinutes: time - 14*60, startTime: "14:00", steps: fallbackSteps, freezeAhead: ["Große Mengen vorkochen und portionsweise einfrieren"], freshOnDay: ["Salate und frische Beilagen am jeweiligen Tag zubereiten"] });
+        // Fallback: generische Bases aus Gerichtnamen ableiten
+        const fallbackBases = planRecipes.slice(0, 4).map(p => ({
+          name: p.meal,
+          quantity: `${persons} Portionen`,
+          method: `${p.minutes || 30} Min zubereiten`,
+          usedFor: [p.day]
+        }));
+        setCookGuide({ bases: fallbackBases, tips: ["Große Mengen vorkochen und portionsweise einfrieren", "Was nicht sofort gebraucht wird einfrieren"] });
       }
     } catch(e) {
       // Fallback bei jedem Fehler
-      const fallbackSteps = planRecipes.map((p, i) => {
-        const h = Math.floor((14*60 + i*35) / 60).toString().padStart(2,"0");
-        const m = ((14*60 + i*35) % 60).toString().padStart(2,"0");
-        return { time: `${h}:${m}`, duration: p.minutes || 30, action: p.meal, tip: "" };
-      });
-      setCookGuide({ totalMinutes: planRecipes.length * 35, startTime: "14:00", steps: fallbackSteps, freezeAhead: [], freshOnDay: [] });
+      setCookGuide({ bases: planRecipes.slice(0,4).map(p => ({ name: p.meal, quantity: `${persons} Port.`, method: `${p.minutes||30} Min`, usedFor: [p.day] })), tips: [] });
     }
     setCookGuideBusy(false);
   }
@@ -3472,49 +3460,38 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
           {/* Sonntags-Kochanleitung Anzeige */}
           {cookGuide && (
             <Card>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                <div>
-                  <div className="kk-h" style={{ fontSize: 18, fontWeight: 900, color: SAGE }}>👨‍🍳 Kochanleitung Sonntag</div>
-                  <div className="kk-b" style={{ fontSize: 13, color: theme.MUTED, marginTop: 2 }}>
-                    Start: {cookGuide.startTime} · ca. {cookGuide.totalMinutes} Min gesamt
-                  </div>
-                </div>
-                <button onClick={() => setCookGuide(null)} className="kk-btn" style={{ background: "none", color: theme.MUTED, fontSize: 20, padding: "0 4px" }}>×</button>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div className="kk-h" style={{ fontSize: 18, fontWeight: 900, color: SAGE }}>👨‍🍳 Was du Sonntag vorkochst</div>
+                <button onClick={() => setCookGuide(null)} className="kk-btn" style={{ background: "none", color: theme.MUTED, fontSize: 22, padding: "0 4px" }}>×</button>
               </div>
 
-              {/* Schritt-für-Schritt */}
-              <div className="kk-b" style={{ fontSize: 12, fontWeight: 700, color: theme.MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Ablauf</div>
-              {(cookGuide.steps || []).map((s, i) => (
-                <div key={i} style={{ display: "flex", gap: 12, marginBottom: 10, paddingBottom: 10, borderBottom: i < cookGuide.steps.length - 1 ? `1px solid ${theme.BORDER}` : "none" }}>
-                  <div style={{ flexShrink: 0, textAlign: "center", minWidth: 44 }}>
-                    <div className="kk-h" style={{ fontSize: 14, fontWeight: 900, color: ACCENT }}>{s.time}</div>
-                    <div className="kk-b" style={{ fontSize: 11, color: theme.MUTED }}>{s.duration} Min</div>
+              {/* Bases */}
+              {(cookGuide.bases || []).map((b, i) => (
+                <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < (cookGuide.bases||[]).length - 1 ? `1.5px solid ${theme.BORDER}` : "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 20 }}>🍳</span>
+                    <div>
+                      <div className="kk-h" style={{ fontSize: 16, fontWeight: 900, color: theme.TEXT }}>{b.name}</div>
+                      <div className="kk-b" style={{ fontSize: 13, color: ACCENT, fontWeight: 700 }}>{b.quantity}</div>
+                    </div>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div className="kk-b" style={{ fontSize: 14.5, fontWeight: 600, color: theme.TEXT, lineHeight: 1.4 }}>{s.action}</div>
-                    {s.tip && (
-                      <div className="kk-b" style={{ fontSize: 12, color: SAGE, fontStyle: "italic", marginTop: 3 }}>💡 {s.tip}</div>
-                    )}
+                  <div className="kk-b" style={{ fontSize: 14.5, color: theme.TEXT, lineHeight: 1.6, marginBottom: 6, background: theme.SAGE_BG, borderRadius: 8, padding: "8px 10px" }}>
+                    {b.method}
                   </div>
+                  {b.usedFor?.length > 0 && (
+                    <div className="kk-b" style={{ fontSize: 12, color: theme.MUTED }}>
+                      → reicht für: {b.usedFor.join(", ")}
+                    </div>
+                  )}
                 </div>
               ))}
 
-              {/* Einfrieren-Empfehlung */}
-              {cookGuide.freezeAhead?.length > 0 && (
-                <div style={{ background: "#6E8CA018", borderRadius: 10, padding: "10px 12px", marginTop: 8 }}>
-                  <div className="kk-b" style={{ fontSize: 12, fontWeight: 700, color: "#6E8CA0", marginBottom: 6 }}>❄ Vorkochen & Einfrieren</div>
-                  {cookGuide.freezeAhead.map((f, i) => (
-                    <div key={i} className="kk-b" style={{ fontSize: 13.5, color: theme.TEXT, marginBottom: 3 }}>· {f}</div>
-                  ))}
-                </div>
-              )}
-
-              {/* Frisch am Tag */}
-              {cookGuide.freshOnDay?.length > 0 && (
-                <div style={{ background: SAGE + "12", borderRadius: 10, padding: "10px 12px", marginTop: 8 }}>
-                  <div className="kk-b" style={{ fontSize: 12, fontWeight: 700, color: SAGE, marginBottom: 6 }}>🥗 Frisch am jeweiligen Tag</div>
-                  {cookGuide.freshOnDay.map((f, i) => (
-                    <div key={i} className="kk-b" style={{ fontSize: 13.5, color: theme.TEXT, marginBottom: 3 }}>· {f}</div>
+              {/* Tipps */}
+              {cookGuide.tips?.length > 0 && (
+                <div style={{ background: GOLD + "15", borderRadius: 10, padding: "10px 12px", marginTop: 4 }}>
+                  <div className="kk-b" style={{ fontSize: 12, fontWeight: 700, color: GOLD, marginBottom: 6 }}>💡 Profi-Tipps</div>
+                  {cookGuide.tips.map((t, i) => (
+                    <div key={i} className="kk-b" style={{ fontSize: 13.5, color: theme.TEXT, marginBottom: 3 }}>· {t}</div>
                   ))}
                 </div>
               )}
