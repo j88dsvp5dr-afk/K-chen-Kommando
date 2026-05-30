@@ -2442,7 +2442,9 @@ function Recipes({ freezer, setFreezer, pantry, setPantry, recipes, setRecipes, 
     const urgentStr = urgentItems.length > 0 ? `\n🚨 DRINGEND RETTEN (läuft in ≤5 Tagen ab): ${urgentItems.map(f => `${f.name} (noch ${daysUntil(f.bestBefore)} Tage!)`).join(", ")} — MUSS im Rezept verwendet werden.` : "";
 
     // 3 Vorschläge parallel generieren
-    const makePrompt = (variety) => `Du bist ein Profi-Küchenchef und Meal-Prep-Experte. ${householdRules(household)} ${dietRules(diet)} ${healthRules(health)} ${kidsRules(kidsProfile)} Budget 7–9 € pro Mahlzeit, alltagstauglich.
+    const maxCost = household?.maxCostPerMeal || 7;
+    const maxTimeWd = household?.maxCookTimeWeekday || 30;
+    const makePrompt = (variety) => `Du bist ein Profi-Küchenchef und Meal-Prep-Experte. ${householdRules(household)} ${dietRules(diet)} ${healthRules(health)} ${kidsRules(kidsProfile)} ZWINGEND MAX ${maxCost}€ Gesamtkosten. ZWINGEND MAX ${maxTimeWd} Min Zubereitungszeit.
 
 ZWINGEND PORTIONEN: Exakt ${totalPersons} Portionen — nicht mehr, nicht weniger.
 ZWINGEND VARIATION: Heute ${variety} — andere Hauptzutat als: ${recentTitles || "keine"}.
@@ -3680,7 +3682,8 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
       try {
         const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
         const persons = household?.persons || 4;
-        const prompt = `Erstelle ein detailliertes Rezept für: "${d.meal}". Für ${persons} Personen. Ernährung: ${dietStr}. Maximal ${d.minutes || 30} Minuten. Nur JSON ohne Markdown:
+        const maxCostDay = household?.maxCostPerMeal || 7;
+        const prompt = `Erstelle ein detailliertes Rezept für: "${d.meal}". Für ${persons} Personen. Ernährung: ${dietStr}. MAX ${d.minutes || 30} Min. MAX ${maxCostDay}€ Gesamtkosten. Kinder (12+10 J.) mögen es. Profi-Küchenchef-Qualität. Nur JSON ohne Markdown:
 {"title":"${d.meal}","portions":${persons},"prepMinutes":${d.minutes||30},"reuse":"Reste-Tipp für Tag 2","estCostPerMeal":"3–6 €","totalCost":"Zahl","costPerPortion":"Zahl","ingredients":[{"item":"Name","amount":"Menge mit Einheit","fromFreezer":false}],"steps":["Schritt 1","Schritt 2"],"nutrition":{"kcal":Zahl,"protein":Zahl,"carbs":Zahl,"fat":Zahl}}`;
 
         const txt = await askClaude(prompt, 1500);
