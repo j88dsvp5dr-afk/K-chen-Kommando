@@ -1167,7 +1167,7 @@ export default function App() {
           tab === "pantry" ? <Pantry pantry={pantry} setPantry={setPantry} shopping={shopping} setShopping={setShopping} /> :
           tab === "recipes" ? <Recipes freezer={freezer} setFreezer={setFreezer} pantry={pantry} setPantry={setPantry} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
           tab === "double" ? <DoubleRecipes freezer={freezer} pantry={pantry} setShopping={setShopping} shopping={shopping} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
-          tab === "plan" ? <BatchPlan freezer={freezer} setFreezer={setFreezer} pantry={pantry} recipes={recipes} plan={plan} setPlan={setPlan} setShopping={setShopping} shopping={shopping} diet={diet} health={health} household={household} calEvents={calEvents} setTab={setTab} setRecipes={setRecipes} /> :
+          tab === "plan" ? <BatchPlan freezer={freezer} setFreezer={setFreezer} pantry={pantry} recipes={recipes} plan={plan} setPlan={setPlan} setShopping={setShopping} shopping={shopping} diet={diet} health={health} household={household} calEvents={calEvents} setTab={setTab} setRecipes={setRecipes} kidsProfile={kidsProfile} /> :
           tab === "week" ? <WeekView plan={plan} setPlan={setPlan} setTab={setTab} freezer={freezer} setFreezer={setFreezer} calEvents={calEvents} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} household={household} /> :
           tab === "handover" ? <WeekHandover freezer={freezer} pantry={pantry} plan={plan} recipes={recipes} setTab={setTab} /> :
           tab === "routines" ? <Routines /> :
@@ -3209,7 +3209,7 @@ Antworte AUSSCHLIESSLICH mit reinem JSON, kein Markdown:
 }
 
 // ---------------- Batch-Plan ----------------
-function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setShopping, shopping, diet, health, household, calEvents, setTab, setRecipes }) {
+function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setShopping, shopping, diet, health, household, calEvents, setTab, setRecipes, kidsProfile }) {
   const theme = useTheme();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -3373,58 +3373,7 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
 
                 {/* Passendes Rezept aus gespeicherten Rezepten */}
                 {matchedRecipe && (
-                  <div style={{ background: theme.SAGE_BG, borderRadius: 12, padding: "10px 12px", marginBottom: 8 }}>
-                    <div className="kk-b" style={{ fontSize: 12, color: SAGE, fontWeight: 700, marginBottom: 6 }}>📖 Gespeichertes Rezept gefunden:</div>
-
-                    {/* Zutaten mit Mengen */}
-                    <div className="kk-b" style={{ fontSize: 13, fontWeight: 700, color: theme.TEXT, marginBottom: 4 }}>Zutaten ({matchedRecipe.portions} Port.):</div>
-                    <ul style={{ margin: "0 0 8px", paddingLeft: 16 }}>
-                      {matchedRecipe.ingredients?.map((ing, k) => (
-                        <li key={k} className="kk-b" style={{ fontSize: 13.5, color: theme.TEXT, marginBottom: 2 }}>
-                          <span style={{ fontWeight: 700 }}>{ing.amount}</span> {ing.item}
-                          {ing.fromFreezer && <span style={{ color: "#6E8CA0", fontSize: 11 }}> ❄TK</span>}
-                        </li>
-                      ))}
-                    </ul>
-
-                    {/* Nährwerte */}
-                    {matchedRecipe.nutrition && (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 4, marginBottom: 8 }}>
-                        {[
-                          { l: "kcal", v: matchedRecipe.nutrition.kcal, c: ACCENT },
-                          { l: "Eiweiß", v: matchedRecipe.nutrition.protein ? matchedRecipe.nutrition.protein + "g" : null, c: SAGE },
-                          { l: "Kohlenhydr.", v: matchedRecipe.nutrition.carbs ? matchedRecipe.nutrition.carbs + "g" : null, c: GOLD },
-                          { l: "Fett", v: matchedRecipe.nutrition.fat ? matchedRecipe.nutrition.fat + "g" : null, c: "#6E8CA0" },
-                        ].filter(n => n.v).map((n, ni) => (
-                          <div key={ni} style={{ background: n.c + "18", borderRadius: 8, padding: "4px 6px", textAlign: "center" }}>
-                            <div className="kk-h" style={{ fontSize: 14, fontWeight: 900, color: n.c }}>{n.v}</div>
-                            <div className="kk-b" style={{ fontSize: 9, color: theme.MUTED }}>{n.l}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Buttons: Rezept öffnen + Einfrieren */}
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setTab("recipes")} className="kk-btn kk-b"
-                        style={{ flex: 1, background: ACCENT, color: "#fff", padding: "9px", borderRadius: 10, fontWeight: 700, fontSize: 13 }}>
-                        📖 Rezept öffnen
-                      </button>
-                      {setFreezer && (
-                        <button onClick={() => {
-                          const d2 = new Date(); d2.setMonth(d2.getMonth() + 3);
-                          const bb = d2.toISOString().slice(0, 10);
-                          setFreezer(prev => [...prev, {
-                            id: Date.now(), name: `${matchedRecipe.title} (${matchedRecipe.portions} Port.)`,
-                            qty: `${matchedRecipe.portions} Portionen`, cat: "Fertiggericht", bestBefore: bb
-                          }]);
-                        }} className="kk-btn kk-b"
-                          style={{ flex: 1, background: "#6E8CA0", color: "#fff", padding: "9px", borderRadius: 10, fontWeight: 700, fontSize: 13 }}>
-                          ❄ Einfrieren
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <ExpandableRecipe matched={matchedRecipe} freezer={freezer} setFreezer={setFreezer} kidsProfile={kidsProfile} />
                 )}
 
                 {/* Kein Rezept gefunden — KI generieren */}
@@ -3644,6 +3593,40 @@ function mealEmoji(meal) {
   const m = (meal || "").toLowerCase();
   for (const key in DAY_EMOJI) if (m.includes(key)) return DAY_EMOJI[key];
   return "🍽";
+}
+
+// Aufklappbares Rezept-Widget — überall nutzbar
+function ExpandableRecipe({ matched, freezer, setFreezer, kidsProfile, onUpdate }) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ background: theme.SAGE_BG, borderRadius: 12, marginTop: 8, overflow: "hidden", border: `1px solid ${SAGE}30` }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="kk-btn kk-b"
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "transparent", color: theme.TEXT, textAlign: "left" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 14 }}>📖</span>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: SAGE }}>{matched.title}</span>
+          <span style={{ fontSize: 12, color: theme.MUTED, fontWeight: 500 }}>· {matched.portions} Port. · {matched.prepMinutes} Min</span>
+        </div>
+        <span style={{ fontSize: 18, color: SAGE, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", lineHeight: 1 }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ padding: "0 12px 12px" }}>
+          <RecipeView
+            r={matched}
+            compact
+            kidsProfile={kidsProfile}
+            freezer={freezer}
+            setFreezer={setFreezer}
+            onUpdate={onUpdate || (() => {})}
+          />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recipes, setRecipes, diet, health, household }) {
@@ -3942,35 +3925,7 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
               );
               if (!matched) return null;
               return (
-                <div style={{ background: theme.SAGE_BG, borderRadius: 12, padding: "10px", marginTop: 8 }}>
-                  <div className="kk-b" style={{ fontSize: 12, color: SAGE, fontWeight: 700, marginBottom: 6 }}>📖 Rezept · {matched.portions} Port. · {matched.prepMinutes} Min</div>
-                  {/* Zutaten mit Mengen */}
-                  <ul style={{ margin: "0 0 8px", paddingLeft: 16 }}>
-                    {matched.ingredients?.slice(0, 6).map((ing, k) => (
-                      <li key={k} className="kk-b" style={{ fontSize: 13, color: theme.TEXT, marginBottom: 1 }}>
-                        <b>{ing.amount}</b> {ing.item}{ing.fromFreezer ? " ❄" : ""}
-                      </li>
-                    ))}
-                    {matched.ingredients?.length > 6 && (
-                      <li className="kk-b" style={{ fontSize: 12, color: theme.MUTED }}>+ {matched.ingredients.length - 6} weitere…</li>
-                    )}
-                  </ul>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setTab("recipes")} className="kk-btn kk-b"
-                      style={{ flex: 1, background: ACCENT, color: "#fff", padding: "8px", borderRadius: 9, fontWeight: 700, fontSize: 12 }}>
-                      📖 Öffnen
-                    </button>
-                    {setFreezer && (
-                      <button onClick={() => {
-                        const dd = new Date(); dd.setMonth(dd.getMonth() + 3);
-                        setFreezer(prev => [...prev, { id: Date.now(), name: `${matched.title} (Reste)`, qty: `${matched.portions} Portionen`, cat: "Fertiggericht", bestBefore: dd.toISOString().slice(0, 10) }]);
-                      }} className="kk-btn kk-b"
-                        style={{ flex: 1, background: "#6E8CA0", color: "#fff", padding: "8px", borderRadius: 9, fontWeight: 700, fontSize: 12 }}>
-                        ❄ Einfrieren
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <ExpandableRecipe key={matched.id} matched={matched} freezer={freezer} setFreezer={setFreezer} kidsProfile={kidsProfile} />
               );
             })()}
 
