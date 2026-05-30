@@ -564,14 +564,16 @@ function fileToBase64(file) {
 // Kinder-Profil-Regeln für KI-Prompts
 function kidsRules(kidsProfile) {
   const active = KIDS_PROFILES.filter((o) => kidsProfile[o.key]);
-  const hannaDislikes = (kidsProfile?.hannaDislikes || []).join(", ");
-  const timoDislikes = (kidsProfile?.timoDislikes || []).join(", ");
-  const dislikeStr = [
-    hannaDislikes ? `Hanna mag NICHT: ${hannaDislikes}.` : "",
-    timoDislikes ? `Timo mag NICHT: ${timoDislikes}.` : "",
-  ].filter(Boolean).join(" ");
+  const hannaDislikes = (kidsProfile?.hannaDislikes || []);
+  const timoDislikes = (kidsProfile?.timoDislikes || []);
+  const allDislikes = [...new Set([...hannaDislikes, ...timoDislikes])];
+  const dislikeStr = allDislikes.length > 0
+    ? `ABSOLUT VERBOTEN — diese Zutaten NIEMALS verwenden (Kinder essen es nicht): ${allDislikes.join(", ")}. Nicht einmal als Spurenzutat oder versteckt.`
+    : "";
+  const hannaStr = hannaDislikes.length > 0 ? `Hanna verweigert: ${hannaDislikes.join(", ")}.` : "";
+  const timoStr = timoDislikes.length > 0 ? `Timo verweigert: ${timoDislikes.join(", ")}.` : "";
   const base = active.length > 0 ? "KINDER-PROFIL: " + active.map((o) => o.prompt).join(" ") + " Bewerte jeden Rezeptvorschlag mit einem Kinder-Akzeptanz-Score 1-10." : "";
-  return [base, dislikeStr].filter(Boolean).join(" ");
+  return [base, dislikeStr, hannaStr, timoStr].filter(Boolean).join(" ");
 }
 
 // Kinder-Score aus Rezept-Daten schätzen (regelbasiert)
