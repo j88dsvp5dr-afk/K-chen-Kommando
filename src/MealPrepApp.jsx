@@ -1,5 +1,131 @@
 import React, { useState, useEffect, useCallback } from "react";
 
+
+// ============================================================
+// KI-CHAT — Freitext-Chat mit Küchen-Kontext
+// ============================================================
+function KIChat({ freezer, pantry, recipes, plan, shopping, diet, household }) {
+  const theme = useTheme();
+  const [messages, setMessages] = React.useState([
+    { role: "assistant", text: "Hallo! Ich bin dein Küchen-Assistent 🍳 Frag mich alles — Rezeptideen, was du mit deinem Vorrat kochen kannst, Einkaufstipps oder Meal-Prep-Hilfe!" }
+  ]);
+  const [input, setInput] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const bottomRef = React.useRef(null);
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  function buildContext() {
+    const freezerItems = freezer.slice(0, 15).map(f => f.name + (f.bestBefore ? " (MHD: " + f.bestBefore + ")" : "")).join(", ");
+    const pantryItems = pantry.slice(0, 15).map(p => p.name).join(", ");
+    const recipeNames = recipes.slice(0, 10).map(r => r.title).join(", ");
+    const shoppingItems = shopping.filter(s => !s.done).slice(0, 10).map(s => s.name).join(", ");
+    const weekPlan = plan?.days?.slice(0, 7).map(d => d.day + ": " + d.meal).join(", ") || "kein Plan";
+    const dietInfo = Object.entries(diet).filter(([k,v]) => v).map(([k]) => k).join(", ") || "keine";
+    const persons = household?.persons || 4;
+    return `Du bist ein hilfreicher Küchen-Assistent für eine Familie mit ${persons} Personen.
+Ernährung: ${dietInfo} (laktosefrei ist Standard).
+Gefrierschrank: ${freezerItems || "leer"}.
+Vorrat: ${pantryItems || "leer"}.
+Gespeicherte Rezepte: ${recipeNames || "keine"}.
+Einkaufsliste (offen): ${shoppingItems || "leer"}.
+Wochenplan: ${weekPlan}.
+Antworte kurz, praktisch und auf Deutsch. Nutze den Kontext um konkrete Vorschläge zu machen.`;
+  }
+
+  async function send() {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", text: userMsg }]);
+    setLoading(true);
+
+    try {
+      const history = messages.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text }));
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: buildContext(),
+          messages: [...history, { role: "user", content: userMsg }]
+        })
+      });
+      const data = await response.json();
+      const reply = data.content?.[0]?.text || "Entschuldigung, ich konnte keine Antwort generieren.";
+      setMessages(prev => [...prev, { role: "assistant", text: reply }]);
+    } catch(e) {
+      setMessages(prev => [...prev, { role: "assistant", text: "Verbindungsfehler. Bitte versuche es erneut." }]);
+    }
+    setLoading(false);
+  }
+
+  const inp = { borderRadius: 12, border: `1.5px solid ${theme.INP_BORDER}`, padding: "10px 14px", fontSize: 15, outline: "none", fontFamily: "inherit", background: theme.INP_BG, color: theme.TEXT };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", minHeight: 400 }}>
+      <SectionTitle>🤖 KI-Küchen-Chat</SectionTitle>
+
+      {/* Chat Messages */}
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingBottom: 12 }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+            <div style={{
+              maxWidth: "82%",
+              background: m.role === "user" ? ACCENT : theme.CARD,
+              color: m.role === "user" ? "#fff" : theme.TEXT,
+              borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+              padding: "11px 15px",
+              fontSize: 15,
+              lineHeight: 1.5,
+              border: m.role === "assistant" ? `1.5px solid ${theme.BORDER}` : "none",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+            }} className="kk-b">
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <div style={{ background: theme.CARD, border: `1.5px solid ${theme.BORDER}`, borderRadius: "18px 18px 18px 4px", padding: "11px 15px", color: theme.MUTED, fontSize: 15 }} className="kk-b">
+              ✦ Denke nach…
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Quick suggestions */}
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, flexShrink: 0 }}>
+        {["Was kann ich heute kochen?", "Rezept mit meinem Vorrat", "Schnelles Abendessen", "Meal-Prep Idee"].map(q => (
+          <button key={q} onClick={() => { setInput(q); }} className="kk-btn kk-b"
+            style={{ flexShrink: 0, background: theme.SAGE_BG, color: SAGE, border: `1.5px solid ${SAGE}33`, borderRadius: 20, padding: "6px 12px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+            {q}
+          </button>
+        ))}
+      </div>
+
+      {/* Input */}
+      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
+          placeholder="Frag mich etwas…"
+          style={{ ...inp, flex: 1 }}
+        />
+        <button onClick={send} disabled={loading || !input.trim()} className="kk-btn kk-b"
+          style={{ background: input.trim() ? ACCENT : theme.BORDER, color: "#fff", padding: "10px 18px", borderRadius: 12, fontWeight: 700, fontSize: 15, transition: "background 0.2s" }}>
+          ➤
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
 //  KÜCHEN-KOMMANDO — Meal-Prep & KI-Einkaufsplanung
 //  Module: Gefrierschrank · KI-Rezepte · Batch-Plan · Brotzeit · Einkauf
@@ -873,6 +999,10 @@ export default function App() {
       ],
     },
     {
+      id: "ai", label: "KI-Chat", emoji: "🤖", color: "#7C3AED",
+      pages: [{ id: "chat", label: "KI-Chat" }],
+    },
+    {
       id: "family", label: "Familie", emoji: "👨‍👩‍👧‍👦", color: "#C084FC",
       pages: [
         { id: "routines", label: "Tagesroutinen" },
@@ -1085,6 +1215,7 @@ export default function App() {
           tab === "routines" ? <Routines /> :
           tab === "clips" ? <ClipRewards /> :
           tab === "notes" ? <QuickNotes /> :
+          tab === "chat" ? <KIChat freezer={freezer} pantry={pantry} recipes={recipes} plan={plan} shopping={shopping} diet={diet} household={household} /> :
           tab === "calendar" ? <CalendarEvents events={calEvents} setEvents={setCalEvents} /> :
           tab === "gamification" ? <GamificationTab gamification={gamification} recipes={recipes} /> :
           tab === "bread" ? <Bread household={household} shopping={shopping} setShopping={setShopping} /> :
