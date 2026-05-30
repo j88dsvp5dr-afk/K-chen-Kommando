@@ -3228,6 +3228,59 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
   const [skippedItems, setSkippedItems] = React.useState([]);
   const [showSkipped, setShowSkipped] = React.useState(false);
   const [chatMode, setChatMode] = useState(false);
+  const [cookGuide, setCookGuide] = useState(null);
+  const [cookGuideBusy, setCookGuideBusy] = useState(false);
+
+  async function generateCookGuide() {
+    if (!plan?.days?.length) return;
+    setCookGuideBusy(true);
+    setCookGuide(null);
+
+    // Sammle alle Rezepte des Plans mit Zutaten + Schritten
+    const planRecipes = (plan.days || [])
+      .filter(d => d.meal)
+      .map(d => {
+        const matched = (recipes || []).find(r => {
+          const t = r.title.toLowerCase(); const m = d.meal.toLowerCase();
+          const tW = t.split(/[^a-zäöüß]+/).filter(w=>w.length>=4);
+          const mW = m.split(/[^a-zäöüß]+/).filter(w=>w.length>=4);
+          return tW.some(w=>mW.includes(w)) || t===m;
+        });
+        return { day: d.day, meal: d.meal, minutes: d.minutes, recipe: matched };
+      });
+
+    const recipeSummary = planRecipes.map(p =>
+      p.recipe
+        ? `${p.day}: ${p.meal} (${p.minutes || 30} Min, ${p.recipe.portions} Port., Zutaten: ${(p.recipe.ingredients||[]).slice(0,5).map(i=>i.item).join(", ")})`
+        : `${p.day}: ${p.meal} (${p.minutes || 30} Min, kein Rezept gespeichert)`
+    ).join("\n");
+
+    const persons = (household?.adults || 1) + (household?.kids?.length || 2);
+    const prompt = `Du bist Meal-Prep-Profi. Erstelle eine KONKRETE Sonntags-Kochanleitung für diese Woche.
+
+Wochenplan:
+${recipeSummary}
+
+Aufgabe: Plane den optimalen Kochablauf für Sonntag. Berücksichtige:
+- Was kann parallel auf dem Herd / im Ofen?
+- Was friert gut ein (→ mehrere Portionen vorkochen)?
+- Was erst am jeweiligen Tag frisch zubereiten?
+- Zeitplan mit Uhrzeiten (z.B. Start 14:00)
+- ${persons} Personen
+
+Antworte NUR mit JSON:
+{"totalMinutes":Zahl,"startTime":"14:00","steps":[{"time":"14:00","duration":15,"action":"Kurze Beschreibung was zu tun ist","tip":"Profi-Tipp optional"}],"freezeAhead":["Was in größerer Menge vorkochen und einfrieren"],"freshOnDay":["Was besser frisch am jeweiligen Tag zubereiten"]}`;
+
+    try {
+      const txt = await askClaude(prompt, 1200);
+      const guide = parseJSON(txt);
+      if (guide?.steps) setCookGuide(guide);
+      else setErr("Kochanleitung konnte nicht erstellt werden.");
+    } catch(e) {
+      setErr("Fehler beim Erstellen der Kochanleitung.");
+    }
+    setCookGuideBusy(false);
+  }
 
   async function generate() {
     setBusy(true); setErr("");
@@ -3382,7 +3435,69 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
                 {plan.cookSession.map((c, i) => <li key={i} style={{ marginBottom: 3 }}>{c}</li>)}
               </ul>
             )}
+
+            {/* Sonntags-Kochanleitung Button */}
+            <button
+              onClick={generateCookGuide}
+              disabled={cookGuideBusy}
+              className="kk-btn kk-b"
+              style={{ marginTop: 12, width: "100%", background: cookGuideBusy ? theme.BORDER : SAGE, color: "#fff", padding: "11px", borderRadius: 10, fontWeight: 700, fontSize: 14 }}
+            >
+              {cookGuideBusy ? <><span className="kk-spin">✦</span> Kochanleitung wird erstellt…</> : "👨‍🍳 Sonntags-Kochanleitung erstellen"}
+            </button>
           </Card>
+
+          {/* Sonntags-Kochanleitung Anzeige */}
+          {cookGuide && (
+            <Card>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div>
+                  <div className="kk-h" style={{ fontSize: 18, fontWeight: 900, color: SAGE }}>👨‍🍳 Kochanleitung Sonntag</div>
+                  <div className="kk-b" style={{ fontSize: 13, color: theme.MUTED, marginTop: 2 }}>
+                    Start: {cookGuide.startTime} · ca. {cookGuide.totalMinutes} Min gesamt
+                  </div>
+                </div>
+                <button onClick={() => setCookGuide(null)} className="kk-btn" style={{ background: "none", color: theme.MUTED, fontSize: 20, padding: "0 4px" }}>×</button>
+              </div>
+
+              {/* Schritt-für-Schritt */}
+              <div className="kk-b" style={{ fontSize: 12, fontWeight: 700, color: theme.MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Ablauf</div>
+              {(cookGuide.steps || []).map((s, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, marginBottom: 10, paddingBottom: 10, borderBottom: i < cookGuide.steps.length - 1 ? `1px solid ${theme.BORDER}` : "none" }}>
+                  <div style={{ flexShrink: 0, textAlign: "center", minWidth: 44 }}>
+                    <div className="kk-h" style={{ fontSize: 14, fontWeight: 900, color: ACCENT }}>{s.time}</div>
+                    <div className="kk-b" style={{ fontSize: 11, color: theme.MUTED }}>{s.duration} Min</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div className="kk-b" style={{ fontSize: 14.5, fontWeight: 600, color: theme.TEXT, lineHeight: 1.4 }}>{s.action}</div>
+                    {s.tip && (
+                      <div className="kk-b" style={{ fontSize: 12, color: SAGE, fontStyle: "italic", marginTop: 3 }}>💡 {s.tip}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Einfrieren-Empfehlung */}
+              {cookGuide.freezeAhead?.length > 0 && (
+                <div style={{ background: "#6E8CA018", borderRadius: 10, padding: "10px 12px", marginTop: 8 }}>
+                  <div className="kk-b" style={{ fontSize: 12, fontWeight: 700, color: "#6E8CA0", marginBottom: 6 }}>❄ Vorkochen & Einfrieren</div>
+                  {cookGuide.freezeAhead.map((f, i) => (
+                    <div key={i} className="kk-b" style={{ fontSize: 13.5, color: theme.TEXT, marginBottom: 3 }}>· {f}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Frisch am Tag */}
+              {cookGuide.freshOnDay?.length > 0 && (
+                <div style={{ background: SAGE + "12", borderRadius: 10, padding: "10px 12px", marginTop: 8 }}>
+                  <div className="kk-b" style={{ fontSize: 12, fontWeight: 700, color: SAGE, marginBottom: 6 }}>🥗 Frisch am jeweiligen Tag</div>
+                  {cookGuide.freshOnDay.map((f, i) => (
+                    <div key={i} className="kk-b" style={{ fontSize: 13.5, color: theme.TEXT, marginBottom: 3 }}>· {f}</div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
 
           {/* Tages-Karten mit vollem Rezept-Detail */}
           {plan.days?.map((d, i) => {
