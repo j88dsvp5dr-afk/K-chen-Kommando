@@ -3240,6 +3240,7 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
     if (!plan?.days?.length) return;
     setCookGuideBusy(true);
     setCookGuide(null);
+    setErr("");
 
     // Sammle alle Rezepte des Plans mit Zutaten + Schritten
     const planRecipes = (plan.days || [])
@@ -3255,9 +3256,7 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
       });
 
     const recipeSummary = planRecipes.map(p =>
-      p.recipe
-        ? `${p.day}: ${p.meal} (${p.minutes || 30} Min, ${p.recipe.portions} Port., Zutaten: ${(p.recipe.ingredients||[]).slice(0,5).map(i=>i.item).join(", ")})`
-        : `${p.day}: ${p.meal} (${p.minutes || 30} Min, kein Rezept gespeichert)`
+      `${p.day}: ${p.meal} (${p.minutes || 30} Min${p.recipe ? ", Rezept vorhanden" : ""})`
     ).join("\n");
 
     const persons = (household?.adults || 1) + (household?.kids?.length || 2);
