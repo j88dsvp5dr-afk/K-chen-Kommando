@@ -3277,12 +3277,30 @@ Antworte NUR mit JSON:
 {"totalMinutes":Zahl,"startTime":"14:00","steps":[{"time":"14:00","duration":15,"action":"Kurze Beschreibung was zu tun ist","tip":"Profi-Tipp optional"}],"freezeAhead":["Was in größerer Menge vorkochen und einfrieren"],"freshOnDay":["Was besser frisch am jeweiligen Tag zubereiten"]}`;
 
     try {
-      const txt = await askClaude(prompt, 1200);
+      const txt = await askClaude(prompt, 1500);
       const guide = parseJSON(txt);
-      if (guide?.steps) setCookGuide(guide);
-      else setErr("Kochanleitung konnte nicht erstellt werden.");
+      if (guide?.steps?.length > 0) {
+        setCookGuide(guide);
+      } else {
+        // Fallback: einfache regelbasierte Anleitung aus Plan-Daten
+        const fallbackSteps = [];
+        let time = 14 * 60; // 14:00 in Minuten
+        planRecipes.forEach(p => {
+          const h = Math.floor(time / 60).toString().padStart(2,"0");
+          const m = (time % 60).toString().padStart(2,"0");
+          fallbackSteps.push({ time: `${h}:${m}`, duration: p.minutes || 30, action: `${p.meal} vorbereiten`, tip: `Für ${persons} Personen` });
+          time += (p.minutes || 30) + 5;
+        });
+        setCookGuide({ totalMinutes: time - 14*60, startTime: "14:00", steps: fallbackSteps, freezeAhead: ["Große Mengen vorkochen und portionsweise einfrieren"], freshOnDay: ["Salate und frische Beilagen am jeweiligen Tag zubereiten"] });
+      }
     } catch(e) {
-      setErr("Fehler beim Erstellen der Kochanleitung.");
+      // Fallback bei jedem Fehler
+      const fallbackSteps = planRecipes.map((p, i) => {
+        const h = Math.floor((14*60 + i*35) / 60).toString().padStart(2,"0");
+        const m = ((14*60 + i*35) % 60).toString().padStart(2,"0");
+        return { time: `${h}:${m}`, duration: p.minutes || 30, action: p.meal, tip: "" };
+      });
+      setCookGuide({ totalMinutes: planRecipes.length * 35, startTime: "14:00", steps: fallbackSteps, freezeAhead: [], freshOnDay: [] });
     }
     setCookGuideBusy(false);
   }
