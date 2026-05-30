@@ -2339,7 +2339,7 @@ Nur JSON, kein Markdown:
               style={{ ...inp, flex: 1, fontSize: 15, padding: "9px 12px", background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }}
             />
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inp, width: "auto", fontSize: 13.5, padding: "5px 8px", background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }}>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inp, width: "auto", fontSize: 13.5, padding: "5px 8px", background: theme.INP_BG, color: theme.TEXT, border: `1.5px solid ${theme.INP_BORDER}` }}>
+            
               <option value="newest">Neueste zuerst</option>
               <option value="fav">★ Favoriten zuerst</option>
               <option value="rating">Beste Bewertung</option>
