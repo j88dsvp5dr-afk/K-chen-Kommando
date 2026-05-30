@@ -3437,18 +3437,6 @@ Nur JSON:
             </button>
           )}
 
-          {/* Alle Rezepte generieren */}
-          <button onClick={generateAllRecipes} disabled={genAllProgress.running} className="kk-btn kk-b"
-            style={{ marginTop: 8, background: genAllProgress.done ? SAGE : ACCENT, color: "#fff", padding: "13px", borderRadius: 12, fontWeight: 700, fontSize: 15, width: "100%", opacity: genAllProgress.running ? 0.85 : 1 }}>
-            {genAllProgress.done ? "✓ Alle Rezepte generiert!" :
-             genAllProgress.running ? `✦ Generiere ${genAllProgress.current}/${genAllProgress.total}…` :
-             "✦ Alle Rezepte dieser Woche generieren"}
-          </button>
-          {genAllProgress.running && (
-            <div style={{ marginTop: 8, background: theme.CARD, borderRadius: 10, height: 8, overflow: "hidden" }}>
-              <div style={{ width: `${(genAllProgress.current / genAllProgress.total) * 100}%`, height: "100%", background: ACCENT, borderRadius: 10, transition: "width 0.5s ease" }} />
-            </div>
-          )}
           {showSkipped && skippedItems.length > 0 && (
             <div style={{ marginTop: 10, background: SAGE + "18", border: `1.5px solid ${SAGE}55`, borderRadius: 12, padding: "12px 14px" }}>
               <div className="kk-b" style={{ fontSize: 14, fontWeight: 700, color: SAGE, marginBottom: 6 }}>
@@ -3863,6 +3851,19 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
               <div key={i}>Am Vorabend von <b>{d.day}</b>: {d.thawTonight} auftauen</div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Alle Rezepte generieren */}
+      <button onClick={generateAllRecipes} disabled={genAllProgress.running} className="kk-btn kk-b"
+        style={{ marginBottom: 14, background: genAllProgress.done ? SAGE : ACCENT, color: "#fff", padding: "13px", borderRadius: 12, fontWeight: 700, fontSize: 15, width: "100%", opacity: genAllProgress.running ? 0.85 : 1 }}>
+        {genAllProgress.done ? "✓ Alle Rezepte generiert!" :
+         genAllProgress.running ? `✦ Generiere ${genAllProgress.current}/${genAllProgress.total}…` :
+         "✦ Alle Rezepte dieser Woche generieren"}
+      </button>
+      {genAllProgress.running && (
+        <div style={{ marginBottom: 14, background: theme.CARD, borderRadius: 10, height: 8, overflow: "hidden" }}>
+          <div style={{ width: `${(genAllProgress.current / genAllProgress.total) * 100}%`, height: "100%", background: ACCENT, borderRadius: 10, transition: "width 0.5s ease" }} />
         </div>
       )}
 
