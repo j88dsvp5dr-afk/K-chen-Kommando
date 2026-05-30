@@ -3243,47 +3243,11 @@ Nur JSON:
 {"title":"...","summary":"1 Satz","cookDay":"Sonntag","cookSession":["Was vorbereitet wird"],"days":[{"day":"Montag","meal":"...","note":"...","minutes":30,"isLeftover":false,"thawTonight":""}],"shoppingList":[{"item":"...","amount":"...","cat":"Gemüse"}]}`;
 
     try {
-      // Schritt 1: Wochenplan generieren
       const txt = await askClaude(prompt, 3500);
       const result = parseJSON(txt);
       setPlan(result);
       setChatInput("");
       setChatMode(false);
-
-      // Schritt 2: Rezepte für jeden Tag generieren (3 auf einmal)
-      const days = result.days || [];
-      const persons = (household?.adults || 1) + (household?.kids?.length || 0);
-      const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
-      const healthStr = Object.entries(health || {}).filter(([,v])=>v).map(([k])=>k).join(", ");
-
-      // Batch: 3-4 Rezepte pro Call
-      const chunkSize = 3;
-      const allNewRecipes = [];
-      for (let i = 0; i < days.length; i += chunkSize) {
-        const chunk = days.slice(i, i + chunkSize);
-        const recipePrompt = `Du bist Profi-Küchenchef. Erstelle Rezepte für diese Gerichte für ${persons} Personen. Ernährung: ${dietStr}${healthStr ? ", " + healthStr : ""}. Kinder (12+10 Jahre) mögen es. Küchenchef-Qualität mit Profi-Tricks.
-
-Gerichte: ${chunk.map(d => `${d.day}: "${d.meal}" (${d.minutes} Min)`).join("; ")}
-
-Nur JSON-Array:
-[{"title":"...","day":"Montag","portions":${persons},"prepMinutes":30,"reuse":"Reste-Tipp","estCostPerMeal":"5-7€","totalCost":"20","costPerPortion":"5","chefTip":"Profi-Trick","ingredients":[{"item":"...","amount":"500g","fromFreezer":false}],"steps":["Schritt mit exakten Mengen"],"nutrition":{"kcal":500,"protein":30,"carbs":50,"fat":15}}]`;
-        
-        try {
-          const rtxt = await askClaude(recipePrompt, 3000);
-          const recs = parseJSON(rtxt);
-          if (Array.isArray(recs)) allNewRecipes.push(...recs);
-        } catch(e) { /* skip failed chunk */ }
-        
-        if (i + chunkSize < days.length) await new Promise(r => setTimeout(r, 500));
-      }
-
-      if (allNewRecipes.length) {
-        const withIds = allNewRecipes.map((r, i) => ({
-          ...r, id: Date.now() + i, fav: false, rating: 0, kidsLoved: false, cookedCount: 0,
-        }));
-        setRecipes(prev => [...prev, ...withIds]);
-      }
-
     } catch (e) {
       setErr("Plan konnte nicht erstellt werden. Bitte erneut versuchen.");
     }
@@ -3351,7 +3315,7 @@ Nur JSON-Array:
 
         <button onClick={generate} disabled={busy} className="kk-btn kk-b"
           style={{ background: busy ? SAGE : ACCENT, color: "#fff", padding: "12px", borderRadius: 10, fontWeight: 700, fontSize: 16, width: "100%" }}>
-          {busy ? <><span className="kk-spin">✦</span> Plane + generiere Rezepte… (ca. 30 Sek)</> : "▤ Wochenplan + alle Rezepte erstellen"}
+          {busy ? <><span className="kk-spin">✦</span> Plane Woche…</> : "▤ Wochenplan erstellen"}
         </button>
         {err && <div className="kk-b" style={{ color: ACCENT, fontSize: 14, marginTop: 8 }}>{err}</div>}
       </Card>
