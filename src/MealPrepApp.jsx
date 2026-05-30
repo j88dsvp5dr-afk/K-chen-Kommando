@@ -3227,7 +3227,7 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
     const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
     const healthStr = Object.entries(health || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "";
 
-    const prompt = `Du bist ein Profi-Küchenchef und Ernährungsberater. Erstelle einen kompletten Wochen-Batch-Plan MIT allen Rezepten in einem Schritt.
+    const prompt = `Erstelle einen Wochen-Batch-Plan.
 
 ${householdRules(household)} ${dietRules(diet)} ${healthRules(health)}${extra}
 WOCHENTAGS-REGELN: ${weekdayRules}${eventRules}
@@ -3239,53 +3239,51 @@ WICHTIG für Rezepte:
 - Jedes Rezept: exakte Mengen in g/ml, Schritt-für-Schritt, Profi-Tipp am Ende
 - Ernährung beachten: ${dietStr}${healthStr ? ", " + healthStr : ""}
 
-Antworte NUR mit diesem JSON (kein Markdown):
-{
-  "title":"...",
-  "summary":"...",
-  "cookDay":"Sonntag",
-  "cookSession":["Schritt 1","Schritt 2"],
-  "days":[{"day":"Montag","meal":"...","note":"...","minutes":30,"isLeftover":false,"thawTonight":""}],
-  "shoppingList":[{"item":"...","amount":"...","cat":"Gemüse"}],
-  "recipes":[{
-    "title":"...",
-    "day":"Montag",
-    "portions":${persons},
-    "prepMinutes":30,
-    "reuse":"Reste-Tipp",
-    "estCostPerMeal":"5-7€",
-    "totalCost":"20",
-    "costPerPortion":"5",
-    "chefTip":"Geheimer Profi-Trick für dieses Gericht",
-    "ingredients":[{"item":"...","amount":"500g","fromFreezer":false}],
-    "steps":["Schritt 1 mit genauen Mengen","Schritt 2"],
-    "nutrition":{"kcal":500,"protein":30,"carbs":50,"fat":15}
-  }]
-}`;
+Nur JSON:
+{"title":"...","summary":"1 Satz","cookDay":"Sonntag","cookSession":["Was vorbereitet wird"],"days":[{"day":"Montag","meal":"...","note":"...","minutes":30,"isLeftover":false,"thawTonight":""}],"shoppingList":[{"item":"...","amount":"...","cat":"Gemüse"}]}`;
 
     try {
-      const txt = await askClaude(prompt, 6000);
+      // Schritt 1: Wochenplan generieren
+      const txt = await askClaude(prompt, 2500);
       const result = parseJSON(txt);
-      
-      // Extract plan and recipes
-      const { recipes: newRecipes, ...planData } = result;
-      setPlan(planData);
-      
-      // Save recipes with proper IDs
-      if (newRecipes?.length) {
-        const withIds = newRecipes.map((r, i) => ({
-          ...r,
-          id: Date.now() + i,
-          fav: false,
-          rating: 0,
-          kidsLoved: false,
-          cookedCount: 0,
+      setPlan(result);
+      setChatInput("");
+      setChatMode(false);
+
+      // Schritt 2: Rezepte für jeden Tag generieren (3 auf einmal)
+      const days = result.days || [];
+      const persons = (household?.adults || 1) + (household?.kids?.length || 0);
+      const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
+      const healthStr = Object.entries(health || {}).filter(([,v])=>v).map(([k])=>k).join(", ");
+
+      // Batch: 3-4 Rezepte pro Call
+      const chunkSize = 3;
+      const allNewRecipes = [];
+      for (let i = 0; i < days.length; i += chunkSize) {
+        const chunk = days.slice(i, i + chunkSize);
+        const recipePrompt = `Du bist Profi-Küchenchef. Erstelle Rezepte für diese Gerichte für ${persons} Personen. Ernährung: ${dietStr}${healthStr ? ", " + healthStr : ""}. Kinder (12+10 Jahre) mögen es. Küchenchef-Qualität mit Profi-Tricks.
+
+Gerichte: ${chunk.map(d => `${d.day}: "${d.meal}" (${d.minutes} Min)`).join("; ")}
+
+Nur JSON-Array:
+[{"title":"...","day":"Montag","portions":${persons},"prepMinutes":30,"reuse":"Reste-Tipp","estCostPerMeal":"5-7€","totalCost":"20","costPerPortion":"5","chefTip":"Profi-Trick","ingredients":[{"item":"...","amount":"500g","fromFreezer":false}],"steps":["Schritt mit exakten Mengen"],"nutrition":{"kcal":500,"protein":30,"carbs":50,"fat":15}}]`;
+        
+        try {
+          const rtxt = await askClaude(recipePrompt, 2500);
+          const recs = parseJSON(rtxt);
+          if (Array.isArray(recs)) allNewRecipes.push(...recs);
+        } catch(e) { /* skip failed chunk */ }
+        
+        if (i + chunkSize < days.length) await new Promise(r => setTimeout(r, 500));
+      }
+
+      if (allNewRecipes.length) {
+        const withIds = allNewRecipes.map((r, i) => ({
+          ...r, id: Date.now() + i, fav: false, rating: 0, kidsLoved: false, cookedCount: 0,
         }));
         setRecipes(prev => [...prev, ...withIds]);
       }
-      
-      setChatInput("");
-      setChatMode(false);
+
     } catch (e) {
       setErr("Plan konnte nicht erstellt werden. Bitte erneut versuchen.");
     }
