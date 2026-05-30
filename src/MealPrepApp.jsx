@@ -1162,7 +1162,7 @@ export default function App() {
           tab === "pantry" ? <Pantry pantry={pantry} setPantry={setPantry} shopping={shopping} setShopping={setShopping} /> :
           tab === "recipes" ? <Recipes freezer={freezer} setFreezer={setFreezer} pantry={pantry} setPantry={setPantry} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
           tab === "double" ? <DoubleRecipes freezer={freezer} pantry={pantry} setShopping={setShopping} shopping={shopping} diet={diet} health={health} kidsProfile={kidsProfile} household={household} /> :
-          tab === "plan" ? <BatchPlan freezer={freezer} setFreezer={setFreezer} pantry={pantry} recipes={recipes} plan={plan} setPlan={setPlan} setShopping={setShopping} shopping={shopping} diet={diet} health={health} household={household} calEvents={calEvents} setTab={setTab} /> :
+          tab === "plan" ? <BatchPlan freezer={freezer} setFreezer={setFreezer} pantry={pantry} recipes={recipes} plan={plan} setPlan={setPlan} setShopping={setShopping} shopping={shopping} diet={diet} health={health} household={household} calEvents={calEvents} setTab={setTab} setRecipes={setRecipes} /> :
           tab === "week" ? <WeekView plan={plan} setPlan={setPlan} setTab={setTab} freezer={freezer} setFreezer={setFreezer} calEvents={calEvents} recipes={recipes} setRecipes={setRecipes} diet={diet} health={health} household={household} /> :
           tab === "handover" ? <WeekHandover freezer={freezer} pantry={pantry} plan={plan} recipes={recipes} setTab={setTab} /> :
           tab === "routines" ? <Routines /> :
@@ -3202,7 +3202,7 @@ Antworte AUSSCHLIESSLICH mit reinem JSON, kein Markdown:
 }
 
 // ---------------- Batch-Plan ----------------
-function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setShopping, shopping, diet, health, household, calEvents, setTab }) {
+function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setShopping, shopping, diet, health, household, calEvents, setTab, setRecipes }) {
   const theme = useTheme();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -3220,27 +3220,70 @@ function BatchPlan({ freezer, setFreezer, pantry, recipes, plan, setPlan, setSho
     const weekdayRules = Object.entries(WEEKDAY_TAGS).map(([day, t]) =>
       `${day}: max. ${t.maxMin} Min${t.urgent ? ` (⚡ ${t.urgent})` : ""}`
     ).join("; ");
-
-    // Persönliche Termine einbeziehen
     const eventRules = (calEvents || []).length > 0
-      ? "\nPERSÖNLICHE TERMINE (zwingend berücksichtigen): " +
-        (calEvents || []).map(e => `${e.day} ${e.time}: ${e.name} (${e.duration} Min, danach max. ${e.maxMinAfter} Min kochen)`).join("; ")
+      ? "\nPERSÖNLICHE TERMINE: " + (calEvents || []).map(e => `${e.day} ${e.time}: ${e.name} (danach max. ${e.maxMinAfter} Min kochen)`).join("; ")
       : "";
+    const persons = (household?.adults || 1) + (household?.kids?.length || 0);
+    const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
+    const healthStr = Object.entries(health || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "";
 
-    const prompt = `Erstelle einen Wochen-Batch-Plan. ${householdRules(household)} Ziel: einen Kochtag pro Woche sparen durch clevere Mehrfach-Nutzung. ${dietRules(diet)} ${healthRules(health)} 7–9 €/Mahlzeit, alltagstauglich.${extra}
+    const prompt = `Du bist ein Profi-Küchenchef und Ernährungsberater. Erstelle einen kompletten Wochen-Batch-Plan MIT allen Rezepten in einem Schritt.
 
-WOCHENTAGS-REGELN (zwingend beachten): ${weekdayRules}${eventRules}
+${householdRules(household)} ${dietRules(diet)} ${healthRules(health)}${extra}
+WOCHENTAGS-REGELN: ${weekdayRules}${eventRules}
+Gefrierbestand: ${stock}. Vorratsschrank: ${pant}.
 
-Gefrierbestand: ${stock}. Vorratsschrank: ${pant}. Gespeicherte Rezepte: ${saved}.
+WICHTIG für Rezepte:
+- Küchenchef-Qualität: besondere Würzkombinationen, Profi-Tricks, nicht langweilig
+- Kinder mögen es (Hanna 12, Timo 10): lecker, nicht zu scharf, ansprechend
+- Jedes Rezept: exakte Mengen in g/ml, Schritt-für-Schritt, Profi-Tipp am Ende
+- Ernährung beachten: ${dietStr}${healthStr ? ", " + healthStr : ""}
 
-Plane EINEN großen Kochtag, dessen Ergebnisse über mehrere Tage variiert werden. Nutze vorhandene Zutaten. Liste pro Wochentag (Mo–So) ein Abendessen. Pro Tag: Aufwand in Minuten, ob Resteverwertung, was am Vorabend aufgetaut werden muss.
+Antworte NUR mit diesem JSON (kein Markdown):
+{
+  "title":"...",
+  "summary":"...",
+  "cookDay":"Sonntag",
+  "cookSession":["Schritt 1","Schritt 2"],
+  "days":[{"day":"Montag","meal":"...","note":"...","minutes":30,"isLeftover":false,"thawTonight":""}],
+  "shoppingList":[{"item":"...","amount":"...","cat":"Gemüse"}],
+  "recipes":[{
+    "title":"...",
+    "day":"Montag",
+    "portions":${persons},
+    "prepMinutes":30,
+    "reuse":"Reste-Tipp",
+    "estCostPerMeal":"5-7€",
+    "totalCost":"20",
+    "costPerPortion":"5",
+    "chefTip":"Geheimer Profi-Trick für dieses Gericht",
+    "ingredients":[{"item":"...","amount":"500g","fromFreezer":false}],
+    "steps":["Schritt 1 mit genauen Mengen","Schritt 2"],
+    "nutrition":{"kcal":500,"protein":30,"carbs":50,"fat":15}
+  }]
+}`;
 
-Nur JSON:
-{"title":"...","summary":"1 Satz Überblick","cookDay":"z.B. Sonntag","cookSession":["Was am Kochtag zubereitet wird"],"days":[{"day":"Montag","meal":"...","note":"...","minutes":Zahl,"isLeftover":true/false,"thawTonight":"was aufgetaut werden muss oder leer"}],"shoppingList":[{"item":"...","amount":"...","cat":"Fleisch/Fisch|Gemüse|Stärke|Milchprodukt (laktosefrei)|Soße/Basis|Brot|Sonstiges"}]}`;
     try {
-      const txt = await askClaude(prompt, 2500);
-      const p = parseJSON(txt);
-      setPlan(p);
+      const txt = await askClaude(prompt, 6000);
+      const result = parseJSON(txt);
+      
+      // Extract plan and recipes
+      const { recipes: newRecipes, ...planData } = result;
+      setPlan(planData);
+      
+      // Save recipes with proper IDs
+      if (newRecipes?.length) {
+        const withIds = newRecipes.map((r, i) => ({
+          ...r,
+          id: Date.now() + i,
+          fav: false,
+          rating: 0,
+          kidsLoved: false,
+          cookedCount: 0,
+        }));
+        setRecipes(prev => [...prev, ...withIds]);
+      }
+      
       setChatInput("");
       setChatMode(false);
     } catch (e) {
@@ -3310,7 +3353,7 @@ Nur JSON:
 
         <button onClick={generate} disabled={busy} className="kk-btn kk-b"
           style={{ background: busy ? SAGE : ACCENT, color: "#fff", padding: "12px", borderRadius: 10, fontWeight: 700, fontSize: 16, width: "100%" }}>
-          {busy ? <><span className="kk-spin">✦</span> Plane Woche…</> : "▤ Wochenplan erstellen"}
+          {busy ? <><span className="kk-spin">✦</span> Plane + generiere Rezepte… (ca. 30 Sek)</> : "▤ Wochenplan + alle Rezepte erstellen"}
         </button>
         {err && <div className="kk-b" style={{ color: ACCENT, fontSize: 14, marginTop: 8 }}>{err}</div>}
       </Card>
