@@ -3270,8 +3270,13 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
       if (!d.meal) return;
       const matched = (recipes || []).find(r =>
         r.title && d.meal && (
-          r.title.toLowerCase().includes(d.meal.toLowerCase().slice(0, 8)) ||
-          d.meal.toLowerCase().includes(r.title.toLowerCase().slice(0, 8))
+          (() => {
+            const t = r.title.toLowerCase().replace(/[^a-zäöüß]/g,' ').trim();
+            const m = d.meal.toLowerCase().replace(/[^a-zäöüß]/g,' ').trim();
+            const tWords = t.split(' ').filter(w => w.length >= 4);
+            const mWords = m.split(' ').filter(w => w.length >= 4);
+            return tWords.some(w => mWords.includes(w)) || t === m;
+          })()
         )
       );
       if (matched?.ingredients) {
@@ -3383,8 +3388,12 @@ Nur JSON (kurz!): {"title":"...","summary":"...","cookDay":"So","cookSession":["
             // Passendes gespeichertes Rezept finden
             const matchedRecipe = recipes?.find(r =>
               r.title && d.meal && (
-                r.title.toLowerCase().includes(d.meal.toLowerCase().slice(0, 8)) ||
-                d.meal.toLowerCase().includes(r.title.toLowerCase().slice(0, 8))
+                (() => {
+                  const t = r.title.toLowerCase(); const m = (d.meal||"").toLowerCase();
+                  const tW = t.split(/[^a-zäöüß]+/).filter(w=>w.length>=4);
+                  const mW = m.split(/[^a-zäöüß]+/).filter(w=>w.length>=4);
+                  return tW.some(w=>mW.includes(w)) || t===m;
+                })()
               )
             );
 
@@ -3696,16 +3705,20 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
 
       // Skip if recipe already exists
       const already = newRecipes.find(r => r.title && d.meal && (
-        r.title.toLowerCase().includes(d.meal.toLowerCase().slice(0, 8)) ||
-        d.meal.toLowerCase().includes(r.title.toLowerCase().slice(0, 8))
+        (() => {
+          const t = r.title.toLowerCase(); const m = d.meal.toLowerCase();
+          const tW = t.split(/[^a-zäöüß]+/).filter(w=>w.length>=4);
+          const mW = m.split(/[^a-zäöüß]+/).filter(w=>w.length>=4);
+          return tW.some(w=>mW.includes(w)) || t===m;
+        })()
       ));
       if (already) continue;
 
       try {
         const dietStr = Object.entries(diet || {}).filter(([,v])=>v).map(([k])=>k).join(", ") || "laktosefrei";
-        const persons = (household?.adults || 1) + (household?.kids || 2);
+        const persons = (household?.adults || 1) + (household?.kids?.length || 2);
         const maxCostDay = household?.maxCostPerMeal || 7;
-        const maxTime = household?.maxTimeWeekday || 30;
+        const maxTime = household?.maxCookTimeWeekday || 30;
         const healthStr = HEALTH_OPTIONS.filter(o => (health||{})[o.key]).map(o => o.prompt).join(" ") || "";
         const kidsStr = KIDS_PROFILES.filter(o => (kidsProfile||{})[o.key]).map(o => o.prompt).join(" ") || "";
         const appliedProfiles = [
@@ -3968,8 +3981,12 @@ function WeekView({ plan, setPlan, setTab, freezer, setFreezer, calEvents, recip
             {(() => {
               const matched = (recipes || []).find(r =>
                 r.title && d.meal && (
-                  r.title.toLowerCase().includes(d.meal.toLowerCase().slice(0, 8)) ||
-                  d.meal.toLowerCase().includes(r.title.toLowerCase().slice(0, 8))
+                  (() => {
+                    const t = r.title.toLowerCase(); const m = (d.meal||"").toLowerCase();
+                    const tW = t.split(/[^a-zäöüß]+/).filter(w=>w.length>=4);
+                    const mW = m.split(/[^a-zäöüß]+/).filter(w=>w.length>=4);
+                    return tW.some(w=>mW.includes(w)) || t===m;
+                  })()
                 )
               );
               if (!matched) return null;
