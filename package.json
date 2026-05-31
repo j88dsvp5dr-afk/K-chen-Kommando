@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "preinstall": "npm config set legacy-peer-deps true"
   },
   "browserslist": {
     "production": [">0.2%", "not dead"],
