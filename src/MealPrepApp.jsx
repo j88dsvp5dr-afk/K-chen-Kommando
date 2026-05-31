@@ -111,6 +111,8 @@ export default function VerenaOS() {
   const [tasks, setTasks]       = useState(() => load("vos_tasks", []));
   const [meal, setMeal]         = useState(() => load("vos_meal", null));
   const [memory, setMemory]     = useState(() => load("vos_memory", []));
+  const [termine, setTermine]   = useState(() => { try { return JSON.parse(localStorage.getItem("vos_termine") || "[]"); } catch { return []; } });
+  const [einkauf, setEinkauf]   = useState(() => { try { return JSON.parse(localStorage.getItem("vos_einkauf") || "[]"); } catch { return []; } });
   const [autopilot, setAutopilot] = useState(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
   const [screen, setScreen]     = useState("home");
@@ -378,9 +380,9 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 100px" }}>
         {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} />}
         {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
-        {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} />}
-        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} />}
-        {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} />}
+        {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} />}
+        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} />}
+        {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
       </div>
 
       {/* -- Bottom Nav -- */}
@@ -1058,12 +1060,11 @@ function TaskRow({ task, index, onDone, onDelete }) {
 // -----------------------------------------------------------
 //  KUECHE SCREEN — TK + Vorrat + Wochenplan + Einkauf
 // -----------------------------------------------------------
-function KuecheScreen({ addMemory, mode }) {
+function KuecheScreen({ addMemory, mode, einkauf, setEinkauf }) {
   const [tab, setTab] = useState("woche");
   const [tk, setTk] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_tk") || "[]"); } catch { return []; } });
   const [vorrat, setVorrat] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_vorrat") || "[]"); } catch { return []; } });
   const [wochenplan, setWochenplan] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_wochenplan") || "null"); } catch { return null; } });
-  const [einkauf, setEinkauf] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_einkauf") || "[]"); } catch { return []; } });
   const [loading, setLoading] = useState(false);
   const [newItem, setNewItem] = useState("");
   const [newVorrat, setNewVorrat] = useState("");
@@ -1071,7 +1072,6 @@ function KuecheScreen({ addMemory, mode }) {
   useEffect(() => { try { localStorage.setItem("vos_tk", JSON.stringify(tk)); } catch {} }, [tk]);
   useEffect(() => { try { localStorage.setItem("vos_vorrat", JSON.stringify(vorrat)); } catch {} }, [vorrat]);
   useEffect(() => { try { localStorage.setItem("vos_wochenplan", JSON.stringify(wochenplan)); } catch {} }, [wochenplan]);
-  useEffect(() => { try { localStorage.setItem("vos_einkauf", JSON.stringify(einkauf)); } catch {} }, [einkauf]);
 
   const WOCHENTAGE = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 
@@ -1460,7 +1460,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
 // -----------------------------------------------------------
 //  VOICE SCREEN -- KI-Kommandozentrale
 // -----------------------------------------------------------
-function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning, setScreen }) {
+function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning, setScreen, setTermine, setEinkauf }) {
   const [input, setInput]       = useState("");
   const [messages, setMessages] = useState([{
     role: "assistant",
@@ -1491,7 +1491,9 @@ Spezielle Aktionen (im Format [AKTION]):
 - [MODUS:RED] wenn du Modus wechseln empfiehlst
 - [AUFGABE:text] wenn du eine neue Aufgabe hinzufuegst
 - [TERMIN:titel|datum|uhrzeit] wenn ein Termin erwaehnt wird (datum als YYYY-MM-DD, uhrzeit als HH:MM oder leer)
-  Beispiel: [TERMIN:Arzt Timo|2024-06-05|10:00] oder [TERMIN:Elternabend|2024-06-10|]`;
+  Beispiel: [TERMIN:Arzt Timo|2024-06-05|10:00]
+- [EINKAUF:artikel] wenn etwas fehlt oder gekauft werden soll
+  Beispiel: Nutzer sagt "Milch leer" -> [EINKAUF:Milch] oder "kauf Butter" -> [EINKAUF:Butter]`;
 
   async function send(text) {
     const msg = text || input.trim();
@@ -1530,14 +1532,21 @@ Spezielle Aktionen (im Format [AKTION]):
           time: uhrzeit.trim(),
           note: "Ueber KI eingetragen",
         };
-        try {
-          const bestehende = JSON.parse(localStorage.getItem("vos_termine") || "[]");
-          const aktualisiert = [...bestehende, neuerTermin].sort((a, b) => new Date(a.datum) - new Date(b.datum));
-          localStorage.setItem("vos_termine", JSON.stringify(aktualisiert));
-          addMemory("Termin: " + titel.trim() + (datum ? " am " + datum : ""));
-          setWarning("Termin gespeichert: " + titel.trim());
-        } catch {}
+        if (setTermine) {
+          setTermine(prev => [...prev, neuerTermin].sort((a, b) => new Date(a.datum) - new Date(b.datum)));
+        }
+        addMemory("Termin: " + titel.trim() + (datum ? " am " + datum : ""));
+        setWarning("Termin gespeichert: " + titel.trim());
         cleanReply = cleanReply.replace(terminMatch[0], "").trim();
+      }
+
+      // Einkauf-Erkennung (z.B. "Milch leer", "kauf Butter")
+      const einkaufMatch = reply.match(/\[EINKAUF:([^\]]+)\]/);
+      if (einkaufMatch && setEinkauf) {
+        const artikel = einkaufMatch[1].trim();
+        setEinkauf(prev => [...prev, { id: Date.now() + 2, name: artikel, done: false }]);
+        addMemory("Einkauf: " + artikel);
+        cleanReply = cleanReply.replace(einkaufMatch[0], "").trim();
       }
 
       setMessages(prev => [...prev, { role: "assistant", text: cleanReply }]);
@@ -1681,10 +1690,7 @@ Spezielle Aktionen (im Format [AKTION]):
 // -----------------------------------------------------------
 //  TERMINE SCREEN
 // -----------------------------------------------------------
-function TermineScreen({ addMemory, setWarning, tasks, setTasks }) {
-  const [termine, setTermine] = useState(() => {
-    try { const v = localStorage.getItem("vos_termine"); return v ? JSON.parse(v) : []; } catch { return []; }
-  });
+function TermineScreen({ addMemory, setWarning, tasks, setTasks, termine, setTermine }) {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [datum, setDatum] = useState("");
