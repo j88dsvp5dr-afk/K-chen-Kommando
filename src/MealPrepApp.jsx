@@ -723,6 +723,7 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
         {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
         {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} vorrat={vorrat} setVorrat={setVorrat} tk={tk} setTk={setTk} />}
         {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} />}
+        {screen === "kinder"  && <KinderScreen addMemory={addMemory} setWarning={setWarning} termine={termine} setTermine={setTermine} setScreen={setScreen} />}
         {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
       </div>
 
@@ -2257,6 +2258,256 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
 }
 
 // -----------------------------------------------------------
+//  KINDER SCREEN — Hanna & Timo
+// -----------------------------------------------------------
+function KinderScreen({ addMemory, setWarning, termine, setTermine, setScreen }) {
+  const [aktiv, setAktiv] = useState("hanna");
+  const [medikamente, setMedikamente] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("vos_medikamente") || "{}"); } catch { return {}; }
+  });
+  const [notizen, setNotizen] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("vos_kindnotizen") || "{}"); } catch { return {}; }
+  });
+  const [showMedForm, setShowMedForm] = useState(false);
+  const [showTerminForm, setShowTerminForm] = useState(false);
+  const [medName, setMedName] = useState("");
+  const [medDosis, setMedDosis] = useState("");
+  const [medZeit, setMedZeit] = useState("");
+  const [terminTitel, setTerminTitel] = useState("");
+  const [terminDatum, setTerminDatum] = useState("");
+  const [terminZeit, setTerminZeit] = useState("");
+  const [notiz, setNotiz] = useState(() => notizen[aktiv] || "");
+
+  useEffect(() => {
+    try { localStorage.setItem("vos_medikamente", JSON.stringify(medikamente)); } catch {}
+  }, [medikamente]);
+
+  useEffect(() => {
+    try { localStorage.setItem("vos_kindnotizen", JSON.stringify(notizen)); } catch {}
+  }, [notizen]);
+
+  useEffect(() => {
+    setNotiz(notizen[aktiv] || "");
+  }, [aktiv]);
+
+  const KINDER = [
+    { id: "hanna", name: "Hanna", alter: "12 Jahre", emoji: "👩" },
+    { id: "timo",  name: "Timo",  alter: "10 Jahre", emoji: "👦" },
+  ];
+
+  const kind = KINDER.find(k => k.id === aktiv);
+  const kindMeds = medikamente[aktiv] || [];
+  const kindTermine = termine.filter(t =>
+    t.title.toLowerCase().includes(aktiv) ||
+    (t.note && t.note.toLowerCase().includes(aktiv))
+  );
+
+  function addMedikament() {
+    if (!medName.trim()) return;
+    const med = { id: Date.now(), name: medName.trim(), dosis: medDosis.trim(), zeit: medZeit.trim() };
+    setMedikamente(prev => ({ ...prev, [aktiv]: [...(prev[aktiv] || []), med] }));
+    addMemory("Medikament " + kind.name + ": " + medName.trim());
+    setMedName(""); setMedDosis(""); setMedZeit("");
+    setShowMedForm(false);
+  }
+
+  function addTermin() {
+    if (!terminTitel.trim() || !terminDatum) return;
+    const t = {
+      id: Date.now(),
+      title: terminTitel.trim() + " (" + kind.name + ")",
+      datum: terminDatum,
+      time: terminZeit,
+      note: "Fuer " + kind.name,
+    };
+    setTermine(prev => [...prev, t].sort((a, b) => new Date(a.datum) - new Date(b.datum)));
+    addMemory("Termin " + kind.name + ": " + terminTitel.trim());
+    setTerminTitel(""); setTerminDatum(""); setTerminZeit("");
+    setShowTerminForm(false);
+  }
+
+  function daysUntil(d) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(d); target.setHours(0,0,0,0);
+    return Math.round((target - today) / 86400000);
+  }
+
+  function formatDatum(d) {
+    if (!d) return "";
+    const [y, m, day] = d.split("-");
+    return day + "." + m + "." + y;
+  }
+
+  const inputStyle = {
+    width: "100%", background: C.surface, border: "1px solid " + C.border,
+    borderRadius: GS.radiusSm, padding: "13px", color: C.text,
+    fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 8
+  };
+
+  return (
+    <div style={{ paddingTop: 28 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Kinder</h2>
+        <button onClick={() => setScreen("termine")} style={{
+          background: "transparent", border: "1px solid " + C.border,
+          borderRadius: 20, padding: "7px 14px", color: C.muted, fontSize: 13, cursor: "pointer"
+        }}>📅 Alle Termine</button>
+      </div>
+
+      {/* Kind-Auswahl */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+        {KINDER.map(k => (
+          <button key={k.id} onClick={() => setAktiv(k.id)} style={{
+            flex: 1, padding: "16px 12px", borderRadius: GS.radius,
+            border: "1px solid " + (aktiv === k.id ? C.accent + "60" : C.border),
+            background: aktiv === k.id ? C.card : "transparent",
+            cursor: "pointer", textAlign: "center",
+          }}>
+            <div style={{ fontSize: 28, marginBottom: 4 }}>{k.emoji}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{k.name}</div>
+            <div style={{ fontSize: 12, color: C.muted }}>{k.alter}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Medikamente */}
+      <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 18, marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: C.muted, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+            Medikamente
+          </div>
+          <button onClick={() => setShowMedForm(s => !s)} style={{
+            background: showMedForm ? C.border : C.accent, border: "none",
+            borderRadius: 10, padding: "7px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer"
+          }}>{showMedForm ? "Abbrechen" : "+ Neu"}</button>
+        </div>
+
+        {showMedForm && (
+          <div style={{ marginBottom: 14 }}>
+            <input value={medName} onChange={e => setMedName(e.target.value)}
+              placeholder="Medikament (z.B. Ibuprofen)" style={inputStyle} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={medDosis} onChange={e => setMedDosis(e.target.value)}
+                placeholder="Dosis (z.B. 400mg)" style={{ ...inputStyle, flex: 1 }} />
+              <input value={medZeit} onChange={e => setMedZeit(e.target.value)}
+                placeholder="Wann?" style={{ ...inputStyle, flex: 1 }} />
+            </div>
+            <button onClick={addMedikament} style={{
+              width: "100%", padding: "13px", background: C.accent, border: "none",
+              borderRadius: GS.radiusSm, color: "#fff", fontWeight: 700, fontSize: 16, cursor: "pointer"
+            }}>Speichern</button>
+          </div>
+        )}
+
+        {kindMeds.length === 0 ? (
+          <div style={{ fontSize: 14, color: C.muted, textAlign: "center", padding: "12px 0" }}>
+            Keine Medikamente eingetragen.
+          </div>
+        ) : (
+          kindMeds.map(med => (
+            <div key={med.id} style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "12px 0", borderBottom: "1px solid " + C.border
+            }}>
+              <div style={{ fontSize: 20 }}>💊</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{med.name}</div>
+                <div style={{ fontSize: 13, color: C.muted }}>
+                  {med.dosis}{med.zeit ? " — " + med.zeit : ""}
+                </div>
+              </div>
+              <button onClick={() => setMedikamente(prev => ({
+                ...prev, [aktiv]: prev[aktiv].filter(m => m.id !== med.id)
+              }))} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>x</button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Termine fuer dieses Kind */}
+      <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 18, marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: C.muted, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+            Termine
+          </div>
+          <button onClick={() => setShowTerminForm(s => !s)} style={{
+            background: showTerminForm ? C.border : C.sage, border: "none",
+            borderRadius: 10, padding: "7px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer"
+          }}>{showTerminForm ? "Abbrechen" : "+ Termin"}</button>
+        </div>
+
+        {showTerminForm && (
+          <div style={{ marginBottom: 14 }}>
+            <input value={terminTitel} onChange={e => setTerminTitel(e.target.value)}
+              placeholder={"Termin fuer " + kind.name} style={inputStyle} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input type="date" value={terminDatum} onChange={e => setTerminDatum(e.target.value)}
+                style={{ ...inputStyle, flex: 2 }} />
+              <input type="time" value={terminZeit} onChange={e => setTerminZeit(e.target.value)}
+                style={{ ...inputStyle, flex: 1 }} />
+            </div>
+            <button onClick={addTermin} style={{
+              width: "100%", padding: "13px", background: C.sage, border: "none",
+              borderRadius: GS.radiusSm, color: "#fff", fontWeight: 700, fontSize: 16, cursor: "pointer"
+            }}>Speichern</button>
+          </div>
+        )}
+
+        {kindTermine.length === 0 ? (
+          <div style={{ fontSize: 14, color: C.muted, textAlign: "center", padding: "12px 0" }}>
+            Keine Termine fuer {kind.name}.
+          </div>
+        ) : (
+          kindTermine.filter(t => daysUntil(t.datum) >= 0).map(t => {
+            const diff = daysUntil(t.datum);
+            return (
+              <div key={t.id} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 0", borderBottom: "1px solid " + C.border
+              }}>
+                <div style={{
+                  background: diff === 0 ? C.accent : diff <= 3 ? C.gold : C.sage,
+                  borderRadius: 8, padding: "4px 8px", fontSize: 10, fontWeight: 800,
+                  color: "#fff", flexShrink: 0
+                }}>
+                  {diff === 0 ? "HEUTE" : diff === 1 ? "morgen" : "in " + diff + "d"}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>{t.title.replace(" (" + kind.name + ")", "")}</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>{formatDatum(t.datum)}{t.time ? " " + t.time : ""}</div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Notizen */}
+      <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 18 }}>
+        <div style={{ fontSize: 13, color: C.muted, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, marginBottom: 12 }}>
+          Notizen zu {kind.name}
+        </div>
+        <textarea
+          value={notiz}
+          onChange={e => {
+            setNotiz(e.target.value);
+            setNotizen(prev => ({ ...prev, [aktiv]: e.target.value }));
+          }}
+          placeholder={"Allergien, Besonderheiten, Schularzt-Infos..."}
+          rows={4}
+          style={{
+            width: "100%", background: C.surface, border: "1px solid " + C.border,
+            borderRadius: GS.radiusSm, padding: "13px", color: C.text,
+            fontSize: 15, outline: "none", resize: "none", boxSizing: "border-box",
+            lineHeight: 1.5,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------
 //  TERMINE SCREEN
 // -----------------------------------------------------------
 function TermineScreen({ addMemory, setWarning, tasks, setTasks, termine, setTermine }) {
@@ -2449,7 +2700,7 @@ function BottomNav({ screen, setScreen }) {
     { id: "tasks",   label: "Aufgaben",icon: "✓" },
     { id: "kueche",  label: "Kueche",  icon: "🧊" },
     { id: "voice",   label: "KI",      icon: "◎" },
-    { id: "termine", label: "Termine", icon: "📅" },
+    { id: "kinder",  label: "Kinder",  icon: "👧" },
   ];
 
   return (
