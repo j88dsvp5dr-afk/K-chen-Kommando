@@ -1549,6 +1549,40 @@ Spezielle Aktionen (im Format [AKTION]):
 
   const QUICK = ["Was jetzt?", "Ueberfordert", "Heute schlimm", "Was essen wir?"];
 
+  // -- Spracherkennung --
+  const [hoert, setHoert] = useState(false);
+  const recognitionRef = useRef(null);
+
+  function startSprache() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Spracherkennung wird von diesem Browser nicht unterstuetzt. Bitte Safari auf iPhone nutzen.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "de-DE";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => setHoert(true);
+    recognition.onend = () => setHoert(false);
+    recognition.onerror = () => setHoert(false);
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      setTimeout(() => send(transcript), 100);
+    };
+    recognitionRef.current = recognition;
+    recognition.start();
+  }
+
+  function stopSprache() {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setHoert(false);
+    }
+  }
+
   return (
     <div style={{ paddingTop: 28, display: "flex", flexDirection: "column", height: "calc(100dvh - 160px)" }}>
       <h2 style={{ margin: "0 0 20px", fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Frag mich</h2>
@@ -1598,34 +1632,48 @@ Spezielle Aktionen (im Format [AKTION]):
         ))}
       </div>
 
+      {/* Mikrofon-Knopf gross */}
+      {!hoert ? (
+        <button onClick={startSprache} style={{
+          width: "100%", padding: "16px", marginBottom: 10,
+          background: "linear-gradient(135deg, " + C.accent + " 0%, #c0392b 100%)",
+          border: "none", borderRadius: 16, color: "#fff",
+          fontWeight: 800, fontSize: 17, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+        }}>
+          🎤 Sprechen
+        </button>
+      ) : (
+        <button onClick={stopSprache} style={{
+          width: "100%", padding: "16px", marginBottom: 10,
+          background: C.accent, border: "none", borderRadius: 16, color: "#fff",
+          fontWeight: 800, fontSize: 17, cursor: "pointer",
+          animation: "pulse 1s infinite",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+        }}>
+          ⏹ Ich hoere... (Tippen zum Stoppen)
+        </button>
+      )}
+
       {/* Input */}
       <div style={{ display: "flex", gap: 8 }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="Sag mir was..."
+          placeholder="Oder hier tippen..."
           style={{
-            flex: 1,
-            background: C.surface,
-            border: `1px solid ${C.border}`,
-            borderRadius: 14,
-            padding: "13px 16px",
-            color: C.text,
-            fontSize: 15,
-            outline: "none",
+            flex: 1, background: C.surface, border: "1px solid " + C.border,
+            borderRadius: 14, padding: "13px 16px", color: C.text, fontSize: 15, outline: "none",
           }}
         />
         <button onClick={() => send()} disabled={loading || !input.trim()} style={{
-          background: input.trim() ? C.accent : C.border,
-          border: "none",
-          borderRadius: 14,
-          padding: "13px 18px",
-          color: "#fff",
-          fontSize: 18,
-          cursor: "pointer",
+          background: input.trim() ? C.accent : C.border, border: "none",
+          borderRadius: 14, padding: "13px 18px", color: "#fff", fontSize: 18, cursor: "pointer",
         }}>➤</button>
       </div>
+
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }`}</style>
     </div>
   );
 }
