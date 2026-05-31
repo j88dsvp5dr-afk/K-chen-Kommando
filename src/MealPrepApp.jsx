@@ -285,7 +285,41 @@ export default function VerenaOS() {
   }
 
   // -- App-Oeffnung beobachten -----------
-  useEffect(() => { beobachte("app_geoeffnet"); }, []);
+  useEffect(() => {
+    beobachte("app_geoeffnet");
+
+    // Automatisches Tages-Backup
+    const heute = new Date().toDateString();
+    const letztesBackup = localStorage.getItem("vos_last_backup");
+    if (letztesBackup !== heute) {
+      // Kurz warten bis alle States geladen sind
+      setTimeout(() => {
+        try {
+          const data = {
+            version: 1,
+            ts: new Date().toISOString(),
+            tasks:    JSON.parse(localStorage.getItem("vos_tasks") || "[]"),
+            termine:  JSON.parse(localStorage.getItem("vos_termine") || "[]"),
+            tk:       JSON.parse(localStorage.getItem("vos_tk") || "[]"),
+            vorrat:   JSON.parse(localStorage.getItem("vos_vorrat") || "[]"),
+            einkauf:  JSON.parse(localStorage.getItem("vos_einkauf") || "[]"),
+            wochenplan: JSON.parse(localStorage.getItem("vos_wochenplan") || "null"),
+            ki_memory:  JSON.parse(localStorage.getItem("vos_ki_memory") || "{}"),
+          };
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "verena-os-backup.json";
+          a.click();
+          URL.revokeObjectURL(url);
+          localStorage.setItem("vos_last_backup", heute);
+        } catch(e) {
+          console.log("Auto-Backup fehlgeschlagen:", e);
+        }
+      }, 3000);
+    }
+  }, []);
 
   // -- Wiederkehrende Aufgaben automatisch erstellen -----------
   useEffect(() => {
