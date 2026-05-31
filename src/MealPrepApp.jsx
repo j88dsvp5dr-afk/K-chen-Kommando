@@ -86,16 +86,38 @@ PSYCHOLOGIE:
 - Realitaet vor Perfektion
 `;
 
+
+// -- Feste Verena-Vorlagen (werden beim Onboarding eingefuegt) --
+const VERENA_VORLAGEN = {
+  tasks: [
+    { id: 1, text: "Brot vorbereiten", wann: "heute", kategorie: "haushalt", wiederholung: "so", priority: "normal", done: false, createdAt: Date.now(), lastCreated: "" },
+    { id: 2, text: "Familienmeeting 18 Uhr", wann: "heute", kategorie: "kinder", wiederholung: "so", priority: "normal", done: false, createdAt: Date.now(), lastCreated: "" },
+    { id: 3, text: "Nachhilfe vorbereiten", wann: "heute", kategorie: "kinder", wiederholung: "do", priority: "high", done: false, createdAt: Date.now(), lastCreated: "" },
+    { id: 4, text: "Geschirrspueler leeren", wann: "heute", kategorie: "haushalt", wiederholung: "taeglich", priority: "normal", done: false, createdAt: Date.now(), lastCreated: "" },
+    { id: 5, text: "Waesche aufhaengen", wann: "heute", kategorie: "haushalt", wiederholung: "einmalig", priority: "normal", done: false, createdAt: Date.now(), lastCreated: "" },
+  ],
+  vorrat: [
+    { id: 10, name: "Nudeln" },
+    { id: 11, name: "Reis" },
+    { id: 12, name: "Olivenoel" },
+    { id: 13, name: "Salz, Pfeffer, Gewuerze" },
+    { id: 14, name: "Tomaten Dose" },
+  ],
+};
+
 export default function VerenaOS() {
   // -- State ----------------------------------------------
   const [mode, setMode]         = useState(() => load("vos_mode", "GREEN"));
   const [tasks, setTasks]       = useState(() => load("vos_tasks", []));
   const [meal, setMeal]         = useState(() => load("vos_meal", null));
   const [memory, setMemory]     = useState(() => load("vos_memory", []));
-  const [autopilot, setAutopilot] = useState(null);  // {fokus, essen, warnung, modus}
+  const [autopilot, setAutopilot] = useState(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
   const [screen, setScreen]     = useState("home");
   const [warning, setWarning]   = useState(null);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return localStorage.getItem("vos_onboarded") !== "true";
+  });
 
   // -- Persist ---------------------------------------------
   useEffect(() => save("vos_mode", mode), [mode]);
@@ -114,6 +136,58 @@ export default function VerenaOS() {
     setMemory(prev => [entry, ...prev].slice(0, 100));
     return entry;
   }, []);
+
+  // -- Export / Import / Onboarding -------------------------
+  function doExport() {
+    const data = {
+      version: 1,
+      tasks:    JSON.parse(localStorage.getItem("vos_tasks") || "[]"),
+      termine:  JSON.parse(localStorage.getItem("vos_termine") || "[]"),
+      tk:       JSON.parse(localStorage.getItem("vos_tk") || "[]"),
+      vorrat:   JSON.parse(localStorage.getItem("vos_vorrat") || "[]"),
+      wochenplan: JSON.parse(localStorage.getItem("vos_wochenplan") || "null"),
+      einkauf:  JSON.parse(localStorage.getItem("vos_einkauf") || "[]"),
+      ts: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "verena-os-backup-" + new Date().toISOString().slice(0,10) + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function doImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.tasks)      { localStorage.setItem("vos_tasks", JSON.stringify(data.tasks)); setTasks(data.tasks); }
+        if (data.termine)    localStorage.setItem("vos_termine", JSON.stringify(data.termine));
+        if (data.tk)         localStorage.setItem("vos_tk", JSON.stringify(data.tk));
+        if (data.vorrat)     localStorage.setItem("vos_vorrat", JSON.stringify(data.vorrat));
+        if (data.wochenplan) localStorage.setItem("vos_wochenplan", JSON.stringify(data.wochenplan));
+        if (data.einkauf)    localStorage.setItem("vos_einkauf", JSON.stringify(data.einkauf));
+        localStorage.setItem("vos_onboarded", "true");
+        setShowOnboarding(false);
+        alert("Backup wiederhergestellt!");
+      } catch { alert("Fehler beim Laden."); }
+    };
+    reader.readAsText(file);
+  }
+
+  function doOnboarding() {
+    const now = Date.now();
+    const vorlagen = VERENA_VORLAGEN.tasks.map((t, i) => ({ ...t, id: now + i, lastCreated: "" }));
+    setTasks(vorlagen);
+    localStorage.setItem("vos_tasks", JSON.stringify(vorlagen));
+    localStorage.setItem("vos_vorrat", JSON.stringify(VERENA_VORLAGEN.vorrat));
+    localStorage.setItem("vos_onboarded", "true");
+    setShowOnboarding(false);
+  }
 
   // -- Wiederkehrende Aufgaben automatisch erstellen -----------
   useEffect(() => {
@@ -254,17 +328,51 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
       flexDirection: "column",
     }}>
       {/* -- Status Bar -- */}
-      <div style={{
-        padding: "16px 20px 0",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}>
+      <div style={{ padding: "16px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <div style={{ fontSize: 11, letterSpacing: 2, color: C.muted, textTransform: "uppercase" }}>
           Verena OS
         </div>
-        <ModeButton mode={mode} setMode={setMode} mc={mc} />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={doExport} style={{
+            background: "transparent", border: "1px solid " + C.border, borderRadius: 20,
+            padding: "5px 10px", color: C.muted, fontSize: 11, cursor: "pointer"
+          }}>💾 Backup</button>
+          <ModeButton mode={mode} setMode={setMode} mc={mc} />
+        </div>
       </div>
+
+      {/* -- Onboarding Modal -- */}
+      {showOnboarding && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "flex-end", padding: "0 0 32px" }}>
+          <div style={{ background: "#1E1E1E", borderRadius: "24px 24px 0 0", padding: "32px 24px 24px", width: "100%", maxWidth: 480, margin: "0 auto" }}>
+            <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>👋</div>
+            <h2 style={{ fontSize: 24, fontWeight: 900, textAlign: "center", marginBottom: 8, color: C.text }}>Willkommen, Verena</h2>
+            <p style={{ fontSize: 15, color: C.muted, textAlign: "center", lineHeight: 1.6, marginBottom: 28 }}>
+              Hast du ein Backup von vorher, oder moechtest du mit meinen Vorlagen starten?
+            </p>
+            <button onClick={doOnboarding} style={{
+              width: "100%", padding: "15px", background: C.accent, border: "none",
+              borderRadius: 14, color: "#fff", fontWeight: 800, fontSize: 17, cursor: "pointer", marginBottom: 10
+            }}>
+              Mit Vorlagen starten
+            </button>
+            <label style={{
+              display: "block", width: "100%", padding: "15px", background: "transparent",
+              border: "1px solid " + C.border, borderRadius: 14, color: C.text, fontWeight: 700,
+              fontSize: 16, cursor: "pointer", textAlign: "center", boxSizing: "border-box", marginBottom: 10
+            }}>
+              Backup laden
+              <input type="file" accept=".json" onChange={doImport} style={{ display: "none" }} />
+            </label>
+            <button onClick={() => { localStorage.setItem("vos_onboarded", "true"); setShowOnboarding(false); }} style={{
+              width: "100%", padding: "12px", background: "transparent", border: "none",
+              color: C.muted, fontSize: 14, cursor: "pointer"
+            }}>
+              Leer starten
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* -- Screen Content -- */}
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 100px" }}>
