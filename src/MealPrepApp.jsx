@@ -327,6 +327,65 @@ const VERENA_VORLAGEN = {
   ],
 };
 
+
+// ── Einmaliger Daten-Import aus Verenas Kalender-Export ──
+const KALENDER_IMPORT = {
+  termine: [
+    {id:10,title:"MRT Roentgen Paderborn",datum:"2026-06-01",time:"14:40",note:"Haus 20, Schmeller. Mitbringen: Roentgenbilder, Befunde, Medikamentenliste"},
+    {id:11,title:"Nachpruefung Deutsch Schule Altenau",datum:"2026-06-02",time:"07:45",note:""},
+    {id:12,title:"Paedagogischer Tag + Berufsfelderkundung",datum:"2026-06-03",time:"07:45",note:""},
+    {id:13,title:"NRW YoungStars Uebungseinheit 3",datum:"2026-06-03",time:"11:45",note:"Schule, 5. Stunde"},
+    {id:14,title:"Fronleichnam Feiertag NRW",datum:"2026-06-04",time:"",note:"Kein Schultag"},
+    {id:15,title:"Timo Bundesjugendspiele",datum:"2026-06-05",time:"08:00",note:"Sporthalle Gallihoeehe, Haarener Str. 9, Borchen"},
+    {id:16,title:"Steuererklaerung 2024 starten",datum:"2026-06-05",time:"10:00",note:"FRIST: 31. Juli 2026!"},
+    {id:17,title:"Nachpruefung Mathematik Schule Altenau",datum:"2026-06-09",time:"07:45",note:""},
+    {id:18,title:"NRW YoungStars Leichtathletikwettbewerb",datum:"2026-06-10",time:"09:00",note:"Ahorn-Sportpark Paderborn, Busfahrt von Schule"},
+    {id:19,title:"Everydent",datum:"2026-06-10",time:"15:45",note:""},
+    {id:5,title:"Geburtstag Florian (42)",datum:"2026-06-13",time:"",note:"Jaehrlich"},
+    {id:20,title:"Ammenwerth Hanna",datum:"2026-06-22",time:"16:15",note:"Schildern 6, Kernstadt, Paderborn"},
+    {id:6,title:"Geburtstag Paul (38)",datum:"2026-06-25",time:"",note:"Jaehrlich"},
+    {id:21,title:"Kennenlernen Nachmittag Timo neue Fuenftkaessler",datum:"2026-06-25",time:"17:00",note:"Schule an der Altenau"},
+    {id:22,title:"Mottowoche Jahrgang 10",datum:"2026-06-29",time:"07:45",note:"Bis 01.07."},
+    {id:30,title:"Abschluss Schulentlassung Jahrgang 10",datum:"2026-07-03",time:"",note:"Schule Altenau"},
+    {id:31,title:"Jahrgangsfahrt Jahrgang 8",datum:"2026-07-06",time:"07:45",note:"Bis 10.07."},
+    {id:32,title:"Schulausflug Timo Gruenes Klassenzimmer Rietberg",datum:"2026-07-10",time:"07:30",note:""},
+    {id:33,title:"Abschluss Timo",datum:"2026-07-11",time:"15:00",note:""},
+    {id:34,title:"Gottesdienst Stephanuskirche Borchen",datum:"2026-07-12",time:"10:30",note:"Danach Brief Gebaeudeversicherung wegschicken"},
+    {id:35,title:"Schulsportfest Schule Altenau",datum:"2026-07-15",time:"07:45",note:""},
+    {id:36,title:"Sternwanderung Schulgemeinschaft",datum:"2026-07-16",time:"07:45",note:""},
+    {id:37,title:"Zeugnisausgabe Schule Altenau",datum:"2026-07-17",time:"07:45",note:""},
+    {id:50,title:"Bio-Tonne rausstellen",datum:"2026-06-08",time:"20:00",note:"Abholung 09.06."},
+    {id:51,title:"Wertstoff-Tonne rausstellen",datum:"2026-06-28",time:"20:00",note:"Abholung 29.06."},
+    {id:52,title:"Papier-Tonne rausstellen",datum:"2026-06-29",time:"20:00",note:"Abholung 30.06."},
+    {id:53,title:"Bio-Tonne rausstellen",datum:"2026-07-20",time:"20:00",note:"Abholung 21.07."},
+    {id:54,title:"Restmuell rausstellen",datum:"2026-08-10",time:"20:00",note:"Abholung 11.08."},
+  ],
+  tasks: [
+    {id:100,text:"Steuererklaerung 2025 vorbereiten",wann:"diesen-monat",kategorie:"behoerde",priority:"high",done:false,createdAt:1748693000000,note:"Frist: 31. Juli 2026"},
+    {id:101,text:"Rechnung Autoreparatur bezahlen",wann:"diese-woche",kategorie:"sonstiges",priority:"high",done:false,createdAt:1748693000000},
+    {id:102,text:"Essensgeld Hanna & Timo bei Frau Borgte bezahlen",wann:"diese-woche",kategorie:"kinder",priority:"high",done:false,createdAt:1748693000000},
+    {id:103,text:"Zahnarztrechnung bezahlen 95,16 Euro",wann:"diese-woche",kategorie:"behoerde",priority:"high",done:false,createdAt:1748693000000},
+    {id:110,text:"DA 200 und 100 aufs VR Konto ueberweisen",wann:"diese-woche",kategorie:"behoerde",priority:"normal",done:false,createdAt:1748693000000},
+    {id:111,text:"Dauerauftrag Nebenkosten einrichten",wann:"diesen-monat",kategorie:"behoerde",priority:"normal",done:false,createdAt:1748693000000},
+    {id:112,text:"Gas wechseln Anbieter vergleichen",wann:"diesen-monat",kategorie:"behoerde",priority:"normal",done:false,createdAt:1748693000000},
+    {id:113,text:"Termin Radiologie machen",wann:"diese-woche",kategorie:"sonstiges",priority:"normal",done:false,createdAt:1748693000000},
+    {id:114,text:"Termin Dr. Mueller Internist machen",wann:"diese-woche",kategorie:"sonstiges",priority:"normal",done:false,createdAt:1748693000000},
+    {id:115,text:"Kinderarzt anrufen Kontrolle Timo + Impfung Hanna",wann:"diese-woche",kategorie:"kinder",priority:"normal",done:false,createdAt:1748693000000},
+    {id:116,text:"Brief Gebaeudeversicherung wegschicken",wann:"diese-woche",kategorie:"behoerde",priority:"normal",done:false,createdAt:1748693000000},
+    {id:117,text:"SC Borchen anrufen wegen Vereinsanmeldung",wann:"diese-woche",kategorie:"kinder",priority:"normal",done:false,createdAt:1748693000000},
+    {id:118,text:"Riester neuanlegen informieren und kuendigen",wann:"diesen-monat",kategorie:"behoerde",priority:"normal",done:false,createdAt:1748693000000},
+    {id:120,text:"Toilettenpapier kaufen",wann:"diese-woche",kategorie:"haushalt",priority:"normal",done:false,createdAt:1748693000000},
+    {id:121,text:"Putzlappen kaufen",wann:"irgendwann",kategorie:"haushalt",priority:"normal",done:false,createdAt:1748693000000},
+    {id:122,text:"Garage Loch spachteln (Handwerker beauftragen)",wann:"irgendwann",kategorie:"haushalt",priority:"normal",done:false,createdAt:1748693000000},
+    {id:123,text:"HWS Filter spuelen (Handwerker)",wann:"irgendwann",kategorie:"haushalt",priority:"normal",done:false,createdAt:1748693000000},
+    {id:124,text:"Heizung pruefen und warten",wann:"irgendwann",kategorie:"haushalt",priority:"normal",done:false,createdAt:1748693000000},
+    {id:125,text:"Feuermelder anbringen",wann:"irgendwann",kategorie:"haushalt",priority:"normal",done:false,createdAt:1748693000000},
+    {id:126,text:"Reisepass beantragen erneuern",wann:"diesen-monat",kategorie:"behoerde",priority:"normal",done:false,createdAt:1748693000000},
+    {id:127,text:"TUeV Auto Termin (faellig 07.10.2027)",wann:"irgendwann",kategorie:"sonstiges",priority:"normal",done:false,createdAt:1748693000000},
+    {id:128,text:"Rechnung Tierarzt fuer Achim pruefen",wann:"diese-woche",kategorie:"sonstiges",priority:"normal",done:false,createdAt:1748693000000},
+  ]
+};
+
 export default function VerenaOS() {
   // -- State ----------------------------------------------
   const [mode, setMode]         = useState(() => load("vos_mode", "GREEN"));
@@ -422,6 +481,24 @@ export default function VerenaOS() {
       } catch { alert("Fehler beim Laden."); }
     };
     reader.readAsText(file);
+  }
+
+  function kalenderImportieren() {
+    const jetzt = Date.now();
+    // Termine mergen (keine Duplikate)
+    setTermine(prev => {
+      const vorhandeneIds = prev.map(t => t.id);
+      const neu = KALENDER_IMPORT.termine.filter(t => !vorhandeneIds.includes(t.id));
+      return [...prev, ...neu].sort((a,b) => new Date(a.datum) - new Date(b.datum));
+    });
+    // Aufgaben mergen
+    setTasks(prev => {
+      const vorhandeneIds = prev.map(t => t.id);
+      const neu = KALENDER_IMPORT.tasks.filter(t => !vorhandeneIds.includes(t.id));
+      return [...prev, ...neu];
+    });
+    localStorage.setItem("vos_kalender_importiert", "true");
+    setWarning("Import abgeschlossen: " + KALENDER_IMPORT.termine.length + " Termine + " + KALENDER_IMPORT.tasks.length + " Aufgaben");
   }
 
   function doOnboarding() {
@@ -692,7 +769,7 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
           {syncStatus === "offline" && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.muted }} />}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <BackupButton doExport={doExport} doImport={doImport} />
+          <BackupButton doExport={doExport} doImport={doImport} kalenderImportieren={kalenderImportieren} />
           <ModeButton mode={mode} setMode={setMode} mc={mc} />
         </div>
       </div>
@@ -748,7 +825,7 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
 // -----------------------------------------------------------
 //  MODE BUTTON
 // -----------------------------------------------------------
-function BackupButton({ doExport, doImport }) {
+function BackupButton({ doExport, doImport, kalenderImportieren }) {
   const [open, setOpen] = useState(false);
   const letztes = localStorage.getItem("vos_last_backup");
   const internVorhanden = !!localStorage.getItem("vos_backup_intern");
@@ -786,6 +863,13 @@ function BackupButton({ doExport, doImport }) {
           background: C.card, border: "1px solid " + C.border,
           borderRadius: 16, overflow: "hidden", zIndex: 100, minWidth: 200,
         }}>
+          {!localStorage.getItem("vos_kalender_importiert") && (
+            <button onClick={() => { kalenderImportieren(); setOpen(false); }} style={{
+              display: "block", width: "100%", padding: "14px 16px", background: "transparent",
+              border: "none", borderBottom: "1px solid " + C.border, color: C.accent,
+              fontSize: 14, fontWeight: 700, cursor: "pointer", textAlign: "left"
+            }}>📅 Kalender-Import laden (einmalig)</button>
+          )}
           <button onClick={() => { doExport(); setOpen(false); }} style={{
             display: "block", width: "100%", padding: "14px 16px", background: "transparent",
             border: "none", borderBottom: "1px solid " + C.border, color: C.text,
