@@ -17,32 +17,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Globale CSS-Injektion fuer bessere Schrift + Touch
-const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
-  
-  body, * {
-    font-family: 'DM Sans', -apple-system, sans-serif !important;
-    -webkit-font-smoothing: antialiased;
-  }
-  
-  button { touch-action: manipulation; }
-  
-  input, textarea {
-    font-size: 16px !important;
-  }
-  
-  ::-webkit-scrollbar { display: none; }
-  * { scrollbar-width: none; }
-`;
 
-// Style-Tag einmal injizieren
-if (typeof document !== "undefined" && !document.getElementById("vos-styles")) {
-  const style = document.createElement("style");
-  style.id = "vos-styles";
-  style.textContent = GLOBAL_CSS;
-  document.head.appendChild(style);
-}
 
 // -----------------------------------------------------------
 //  VERENA OS -- Familien-Operator
