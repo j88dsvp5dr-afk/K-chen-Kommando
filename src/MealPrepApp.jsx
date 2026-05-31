@@ -1011,8 +1011,9 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
 
       {/* Autopilot Banner */}
       {autopilotLoading && (
-        <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: 16, padding: "14px 16px", marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: C.muted }}>Autopilot plant deinen Tag...</div>
+        <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: 16, padding: "14px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.gold, animation: "pulse 1s infinite" }} />
+          <div style={{ fontSize: 14, color: C.muted }}>Autopilot analysiert deinen Tag...</div>
         </div>
       )}
       {autopilot && !autopilotLoading && (
@@ -1027,10 +1028,17 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
           <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
             {autopilot.begruendung}
           </div>
-          <button onClick={() => { localStorage.removeItem("vos_autopilot_date"); runAutopilot(); }} style={{
-            marginTop: 10, background: "transparent", border: "1px solid " + C.border,
-            borderRadius: 8, padding: "5px 10px", color: C.muted, fontSize: 11, cursor: "pointer"
-          }}>Neu planen</button>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button onClick={() => {
+              localStorage.removeItem("vos_autopilot_date");
+              localStorage.removeItem("vos_autopilot_result");
+              setAutopilot(null);
+              runAutopilot();
+            }} style={{
+              background: "transparent", border: "1px solid " + C.border,
+              borderRadius: 8, padding: "5px 10px", color: C.muted, fontSize: 11, cursor: "pointer"
+            }}>↺ Neu planen</button>
+          </div>
         </div>
       )}
 
