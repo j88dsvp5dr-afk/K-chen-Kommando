@@ -53,6 +53,9 @@ const PRIO = {
   p2: { label: "P2", color: "#C9A04A", bg: "#C9A04A20" },
   p3: { label: "P3", color: "#4A90D9", bg: "#4A90D920" },
 };
+const PRIO_SORT = { "p1": 0, "p2": 1, "p3": 2 };
+const WANN_SORT = { "heute": 0, "diese-woche": 1, "diesen-monat": 2, "irgendwann": 3 };
+const KAT_SORT  = { "kinder": 0, "behoerde": 1, "arbeit": 2, "haushalt": 3, "sonstiges": 4 };
 
 const GS = {
   // Touch-optimierte Groessen fuer iPhone
@@ -428,9 +431,7 @@ export default function VerenaOS() {
 
   // -- Derived: visible tasks per mode ---------------------
   const maxVisible = mode === "DARK_RED" ? 3 : mode === "RED" ? 3 : mode === "YELLOW" ? 4 : 5;
-  const PRIO_SORT = { "p1": 0, "p2": 1, "p3": 2 };
-  const WANN_SORT = { "heute": 0, "diese-woche": 1, "diesen-monat": 2, "irgendwann": 3 };
-  const KAT_SORT = { "kinder": 0, "behoerde": 1, "arbeit": 2, "haushalt": 3, "sonstiges": 4 };
+
   const activeTasks = tasks.filter(t => !t.done).slice(0, maxVisible);
   const mc = MODE_CONFIG[mode];
 
