@@ -48,6 +48,12 @@ const C = {
 };
 
 // Globale Styles
+const PRIO = {
+  p1: { label: "P1", color: "#E8552A", bg: "#E8552A20" },
+  p2: { label: "P2", color: "#C9A04A", bg: "#C9A04A20" },
+  p3: { label: "P3", color: "#4A90D9", bg: "#4A90D920" },
+};
+
 const GS = {
   // Touch-optimierte Groessen fuer iPhone
   touchTarget: 52,       // Min Touch-Target iOS HIG
@@ -422,6 +428,9 @@ export default function VerenaOS() {
 
   // -- Derived: visible tasks per mode ---------------------
   const maxVisible = mode === "DARK_RED" ? 3 : mode === "RED" ? 3 : mode === "YELLOW" ? 4 : 5;
+  const PRIO_SORT = { "p1": 0, "p2": 1, "p3": 2 };
+  const WANN_SORT = { "heute": 0, "diese-woche": 1, "diesen-monat": 2, "irgendwann": 3 };
+  const KAT_SORT = { "kinder": 0, "behoerde": 1, "arbeit": 2, "haushalt": 3, "sonstiges": 4 };
   const activeTasks = tasks.filter(t => !t.done).slice(0, maxVisible);
   const mc = MODE_CONFIG[mode];
 
@@ -962,194 +971,222 @@ function ModeButton({ mode, setMode, mc }) {
 //  HOME SCREEN
 // -----------------------------------------------------------
 function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, warning, setWarning, addMemory, maxVisible, autopilot, autopilotLoading, runAutopilot, onPushAktivieren, termine }) {
-  const [aufgabenOffen, setAufgabenOffen] = useState(false);
+  const [showOverblick, setShowOverblick] = useState(false);
+  const [cardIndex, setCardIndex] = useState(0);
+  const [swipeAnim, setSwipeAnim] = useState(null);
+  const [editTask, setEditTask] = useState(null);
   const [quickVal, setQuickVal] = useState("");
-  const [quickWann, setQuickWann] = useState("diese-woche");
-  const [quickKat, setQuickKat] = useState("sonstiges");
-  const offeneAufgaben = tasks.filter(t => !t.done);
-  const isDark = mode === "DARK_RED";
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+
+  const sortedTasks = tasks.filter(t => !t.done).sort((a, b) => {
+    const pA = PRIO_SORT[a.prio || "p3"]; const pB = PRIO_SORT[b.prio || "p3"];
+    if (pA !== pB) return pA - pB;
+    const wA = WANN_SORT[a.wann || "irgendwann"]; const wB = WANN_SORT[b.wann || "irgendwann"];
+    if (wA !== wB) return wA - wB;
+    return KAT_SORT[a.kategorie || "sonstiges"] - KAT_SORT[b.kategorie || "sonstiges"];
+  });
+
+  const stressCards = (mode === "RED" || mode === "DARK_RED") ? sortedTasks.filter(t => t.prio === "p1" || t.prio === "p2") : sortedTasks;
+  const cards = stressCards;
+  const safeIndex = Math.min(cardIndex, Math.max(0, cards.length - 1));
+  const currentCard = cards[safeIndex] || null;
+  const prio = currentCard ? PRIO[currentCard.prio || "p3"] : null;
+
+  useEffect(() => { if (safeIndex !== cardIndex) setCardIndex(safeIndex); }, [cards.length]);
+
+  function erledigen() {
+    if (!currentCard) return;
+    setSwipeAnim("right");
+    setTimeout(() => {
+      setTasks(prev => prev.map(x => x.id === currentCard.id ? {...x, done: true, doneAt: Date.now()} : x));
+      addMemory("erledigt: " + currentCard.text);
+      beobachte("aufgabe_erledigt", {kategorie: currentCard.kategorie});
+      setSwipeAnim(null);
+    }, 220);
+  }
+
+  function ueberspringen() {
+    if (!currentCard || cards.length <= 1) return;
+    setSwipeAnim("left");
+    setTimeout(() => {
+      setCardIndex(i => (i + 1) % cards.length);
+      setSwipeAnim(null);
+    }, 220);
+  }
+
+  function onTouchStart(e) { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; }
+  function onTouchEnd(e) {
+    if (!touchStartX.current) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+    if (Math.abs(dx) > 60 && dy < 100) { dx > 0 ? erledigen() : ueberspringen(); }
+    touchStartX.current = null;
+  }
+
+  const naechsterTermin = (termine || []).find(t => {
+    const d = new Date(t.datum); d.setHours(0,0,0,0);
+    const h = new Date(); h.setHours(0,0,0,0);
+    const diff = Math.round((d-h)/86400000);
+    return diff >= 0 && diff <= 1;
+  });
 
   return (
-    <div style={{ paddingTop: 28 }}>
-      {/* Hero */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>
-          {new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}
+    <div style={{ paddingTop: 20 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 13, color: C.muted }}>{new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}</div>
+          <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: -1.2, margin: "4px 0 0", color: mode === "DARK_RED" ? C.danger : C.text }}>
+            {mode === "DARK_RED" ? "Nur das Noetigste." : mode === "RED" ? "Ich uebernehme." : mode === "YELLOW" ? "Fokus." : "Guten Morgen."}
+          </h1>
         </div>
-        <h1 style={{
-          fontSize: isDark ? 32 : 38,
-          fontWeight: 900,
-          lineHeight: 1.05,
-          margin: 0,
-          letterSpacing: -1.5,
-          color: isDark ? C.danger : C.text,
-        }}>
-          {isDark ? "Nur das Noetigste." : mode === "RED" ? "Ich uebernehme." : mode === "YELLOW" ? "Fokus." : "Guten Morgen."}
-        </h1>
+        <button onClick={() => setShowOverblick(o => !o)} style={{
+          background: showOverblick ? C.accent : C.surface, border: "1px solid " + (showOverblick ? C.accent : C.border),
+          borderRadius: 12, padding: "8px 14px", color: showOverblick ? "#fff" : C.muted,
+          fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 4, flexShrink: 0,
+        }}>{showOverblick ? "x Schliessen" : "Ueberblick"}</button>
       </div>
 
-      {/* Autopilot Banner */}
-      {autopilotLoading && (
-        <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: 16, padding: "14px 16px", marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: C.muted }}>Autopilot plant deinen Tag...</div>
-        </div>
-      )}
-      {autopilot && !autopilotLoading && (
-        <div style={{
-          background: "linear-gradient(135deg, #1a1a2e 0%, #1E1E1E 100%)",
-          border: "1px solid " + C.accent + "40",
-          borderRadius: 18, padding: "16px", marginBottom: 16,
-        }}>
-          <div style={{ fontSize: 11, color: C.accent, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>
-            Autopilot aktiv
-          </div>
-          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
-            {autopilot.begruendung}
-          </div>
-          <button onClick={() => { localStorage.removeItem("vos_autopilot_date"); runAutopilot(); }} style={{
-            marginTop: 10, background: "transparent", border: "1px solid " + C.border,
-            borderRadius: 8, padding: "5px 10px", color: C.muted, fontSize: 11, cursor: "pointer"
-          }}>Neu planen</button>
-        </div>
-      )}
-
-      {/* Warning Banner */}
+      {/* Warnung */}
       {warning && (
-        <div style={{
-          background: `${C.accent}18`,
-          border: `1px solid ${C.accent}44`,
-          borderRadius: 16,
-          padding: "14px 16px",
-          marginBottom: 20,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}>
+        <div style={{ background: C.accent + "18", border: "1px solid " + C.accent + "44", borderRadius: 14, padding: "12px 16px", marginBottom: 14, display: "flex", justifyContent: "space-between" }}>
           <div style={{ fontSize: 14, color: C.accent }}>{warning}</div>
           <button onClick={() => setWarning(null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer" }}>x</button>
         </div>
       )}
 
-      {/* Focus Card -- Hauptaufgabe */}
-      {activeTasks.length > 0 && (
-        <FocusCard task={activeTasks[0]} onDone={() => {
-          setTasks(prev => prev.map((t, i) => t.id === activeTasks[0].id ? { ...t, done: true } : t));
-          addMemory("Erledigt: " + activeTasks[0].text);
-          beobachte("aufgabe_erledigt", { kategorie: activeTasks[0].kategorie });
-        }} />
-      )}
-
-      {/* Task List Preview */}
-      {activeTasks.length > 1 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: 1, textTransform: "uppercase" }}>
-            Danach ({activeTasks.length - 1} weitere)
-          </div>
-          {activeTasks.slice(1, maxVisible).map(t => (
-            <MiniTask key={t.id} task={t} onDone={() => {
-              setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: true } : x));
-              addMemory(`✓ Erledigt: ${t.text}`);
-            }} />
-          ))}
+      {/* Termin heute/morgen */}
+      {naechsterTermin && !showOverblick && (
+        <div style={{ background: C.gold + "15", border: "1px solid " + C.gold + "40", borderRadius: 14, padding: "10px 16px", marginBottom: 14, fontSize: 14, color: C.gold }}>
+          Termin: {naechsterTermin.title}{naechsterTermin.time ? " um " + naechsterTermin.time : ""}
         </div>
       )}
 
-      {/* Meal Card */}
-      <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
-
-      {/* Aufgaben-Block */}
-      {mode !== "DARK_RED" && (
-        <div style={{ marginBottom: 16 }}>
-          {/* Header mit Anzahl und Aufklapp-Button */}
-          <button onClick={() => setAufgabenOffen(o => !o)} style={{
-            width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-            background: "transparent", border: "none", cursor: "pointer", padding: "4px 0 10px",
-          }}>
-            <div style={{ fontSize: 12, color: C.muted, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
-              Alle Aufgaben ({offeneAufgaben.length} offen)
-            </div>
-            <div style={{ fontSize: 12, color: C.muted }}>{aufgabenOffen ? "▲" : "▼"}</div>
-          </button>
-
-          {aufgabenOffen && (
-            <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 16 }}>
-              {/* Quick Add */}
-              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <input value={quickVal} onChange={e => setQuickVal(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && quickVal.trim()) {
-                    const t = { id: Date.now(), text: quickVal.trim(), wann: quickWann, kategorie: quickKat, priority: quickWann === "heute" ? "high" : "normal", done: false, createdAt: Date.now() };
-                    setTasks(prev => [...prev, t]);
-                    addMemory("+ " + quickVal.trim());
-                    setQuickVal("");
-                  }}}
-                  placeholder="+ Aufgabe..."
-                  style={{ flex: 1, background: C.surface, border: "1px solid " + C.border, borderRadius: GS.radiusSm, padding: "11px 14px", color: C.text, fontSize: 15, outline: "none" }} />
-                <button onClick={() => { if (quickVal.trim()) {
-                  const t = { id: Date.now(), text: quickVal.trim(), wann: quickWann, kategorie: quickKat, priority: "normal", done: false, createdAt: Date.now() };
-                  setTasks(prev => [...prev, t]); addMemory("+ " + quickVal.trim()); setQuickVal("");
-                }}} style={{ background: C.accent, border: "none", borderRadius: GS.radiusSm, padding: "11px 16px", color: "#fff", fontSize: 18, cursor: "pointer" }}>+</button>
-              </div>
-
-              {/* Wann-Auswahl */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-                {[{id:"heute",l:"Heute",c:C.accent},{id:"diese-woche",l:"Woche",c:C.gold},{id:"diesen-monat",l:"Monat",c:C.sage},{id:"irgendwann",l:"Irgendwann",c:C.muted}].map(w => (
-                  <button key={w.id} onClick={() => setQuickWann(w.id)} style={{
-                    padding: "6px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
-                    border: "1px solid " + (quickWann === w.id ? w.c : C.border),
-                    background: quickWann === w.id ? w.c + "25" : "transparent",
-                    color: quickWann === w.id ? w.c : C.muted, fontWeight: quickWann === w.id ? 700 : 400,
-                  }}>{w.l}</button>
-                ))}
-              </div>
-
-              {/* Aufgabenliste */}
-              {offeneAufgaben.slice(0, maxVisible).map((t, i) => (
-                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < offeneAufgaben.slice(0,maxVisible).length-1 ? "1px solid " + C.border : "none" }}>
-                  <button onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? {...x, done: true, doneAt: Date.now()} : x)); addMemory("✓ " + t.text); beobachte("aufgabe_erledigt", {kategorie: t.kategorie}); }} style={{
-                    width: 26, height: 26, borderRadius: 8, border: "2px solid " + (i === 0 ? C.accent : C.border),
-                    background: "transparent", cursor: "pointer", flexShrink: 0,
-                  }} />
+      {/* UEBERBLICK */}
+      {showOverblick && (
+        <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <input value={quickVal} onChange={e => setQuickVal(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && quickVal.trim()) {
+                setTasks(prev => [...prev, { id: Date.now(), text: quickVal.trim(), wann: "diese-woche", prio: "p3", priority: "normal", done: false, createdAt: Date.now() }]);
+                addMemory("+ " + quickVal.trim()); setQuickVal("");
+              }}}
+              placeholder="+ Neue Aufgabe..."
+              style={{ flex: 1, background: C.surface, border: "1px solid " + C.border, borderRadius: GS.radiusSm, padding: "10px 14px", color: C.text, fontSize: 15, outline: "none" }} />
+            <button onClick={() => { if (quickVal.trim()) { setTasks(prev => [...prev, { id: Date.now(), text: quickVal.trim(), wann: "diese-woche", prio: "p3", priority: "normal", done: false, createdAt: Date.now() }]); setQuickVal(""); }}}
+              style={{ background: C.accent, border: "none", borderRadius: GS.radiusSm, padding: "10px 16px", color: "#fff", fontSize: 18, cursor: "pointer" }}>+</button>
+          </div>
+          <AutoPrioButton tasks={tasks} setTasks={setTasks} addMemory={addMemory} />
+          <div style={{ marginTop: 12 }}>
+            {sortedTasks.map((t, i) => {
+              const p = PRIO[t.prio || "p3"];
+              return (
+                <div key={t.id} onClick={() => setEditTask({...t})} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: i < sortedTasks.length-1 ? "1px solid " + C.border : "none", cursor: "pointer" }}>
+                  <button onClick={e => { e.stopPropagation(); setTasks(prev => prev.map(x => x.id === t.id ? {...x, done: true, doneAt: Date.now()} : x)); addMemory("erledigt: " + t.text); }} style={{ width: 24, height: 24, borderRadius: 7, border: "2px solid " + p.color, background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                  <span style={{ fontSize: 10, fontWeight: 800, color: p.color, background: p.bg, padding: "1px 6px", borderRadius: 5, flexShrink: 0 }}>{p.label}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: i === 0 ? 600 : 400 }}>{t.text}</div>
-                    {t.wann && <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t.wann}</div>}
+                    <div style={{ fontSize: 14 }}>{t.text}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{t.wann === "heute" ? "Heute" : t.wann === "diese-woche" ? "Woche" : t.wann === "diesen-monat" ? "Monat" : "Spaeter"}{t.kategorie && t.kategorie !== "sonstiges" ? " - " + t.kategorie : ""}</div>
                   </div>
-                  <button onClick={() => setTasks(prev => prev.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>x</button>
                 </div>
-              ))}
-              {offeneAufgaben.length > maxVisible && (
-                <div style={{ textAlign: "center", padding: "10px 0 0", fontSize: 13, color: C.muted }}>
-                  + {offeneAufgaben.length - maxVisible} weitere versteckt
-                </div>
-              )}
+              );
+            })}
+            {tasks.filter(t => t.done).slice(0,5).map(t => (
+              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", opacity: 0.4 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 7, background: C.sage, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff" }}>ok</div>
+                <div style={{ flex: 1, fontSize: 13, textDecoration: "line-through" }}>{t.text}</div>
+                <button onClick={() => setTasks(prev => prev.map(x => x.id === t.id ? {...x, done: false, doneAt: null} : x))} style={{ background: "transparent", border: "1px solid " + C.border, borderRadius: 6, padding: "2px 8px", color: C.muted, fontSize: 11, cursor: "pointer" }}>zurueck</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* CARD SWIPE */}
+      {!showOverblick && (
+        <>
+          {currentCard ? (
+            <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{
+              background: C.card, border: "1px solid " + prio.color + "50",
+              borderRadius: 22, padding: "24px 20px", marginBottom: 16,
+              transform: swipeAnim === "right" ? "translateX(110%) rotate(5deg)" : swipeAnim === "left" ? "translateX(-110%) rotate(-5deg)" : "translateX(0)",
+              opacity: swipeAnim ? 0 : 1,
+              transition: "transform 0.22s ease, opacity 0.22s ease",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: prio.color, background: prio.bg, padding: "3px 10px", borderRadius: 8 }}>{prio.label}</span>
+                <span style={{ fontSize: 12, color: C.muted }}>{safeIndex + 1} / {cards.length}</span>
+              </div>
+              <div style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.3, marginBottom: 6, color: C.text }}>{currentCard.text}</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 26 }}>
+                {currentCard.wann === "heute" ? "Heute" : currentCard.wann === "diese-woche" ? "Diese Woche" : currentCard.wann === "diesen-monat" ? "Diesen Monat" : "Irgendwann"}
+                {currentCard.kategorie && currentCard.kategorie !== "sonstiges" ? " - " + currentCard.kategorie : ""}
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={ueberspringen} style={{ flex: 1, padding: "15px", background: "transparent", border: "1px solid " + C.border, borderRadius: GS.radius, color: C.muted, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Spaeter</button>
+                <button onClick={erledigen} style={{ flex: 2, padding: "15px", background: C.accent, border: "none", borderRadius: GS.radius, color: "#fff", fontSize: 16, fontWeight: 800, cursor: "pointer" }}>Erledigt</button>
+              </div>
+              <div style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: C.muted }}>Wischen: rechts = erledigt, links = spaeter</div>
+            </div>
+          ) : (
+            <div style={{ background: C.card, border: "1px solid " + C.sage + "40", borderRadius: 22, padding: "32px 20px", marginBottom: 16, textAlign: "center" }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>Alles erledigt!</div>
+              <div style={{ fontSize: 15, color: C.sage, fontWeight: 700 }}>Gut gemacht.</div>
             </div>
           )}
+
+          <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
+
+          <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+            <StatPill label="Heute erledigt" value={tasks.filter(t => t.done && isToday(t.doneAt)).length} />
+            <StatPill label="Noch offen" value={sortedTasks.length} />
+          </div>
+        </>
+      )}
+
+      {/* Autopilot */}
+      {autopilot && !autopilotLoading && !showOverblick && (
+        <div style={{ background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: "12px 16px", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Autopilot</div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{autopilot.begruendung}</div>
+          <button onClick={() => { localStorage.removeItem("vos_autopilot_date"); localStorage.removeItem("vos_autopilot_result"); setAutopilot(null); runAutopilot(); }} style={{ marginTop: 8, background: "transparent", border: "1px solid " + C.border, borderRadius: 8, padding: "4px 10px", color: C.muted, fontSize: 11, cursor: "pointer" }}>Neu planen</button>
         </div>
       )}
 
-      {/* Sonntagsrueckblick */}
       <Sonntagsrueckblick tasks={tasks} termine={termine || []} addMemory={addMemory} />
 
-      {/* Stats */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-        <StatPill label="Heute erledigt" value={tasks.filter(t => t.done && isToday(t.doneAt)).length} />
-        <StatPill label="Offen" value={offeneAufgaben.length} />
-      </div>
-
-      {/* Push aktivieren */}
       {typeof Notification !== "undefined" && Notification.permission === "default" && (
-        <button onClick={onPushAktivieren} style={{
-          width: "100%", padding: "13px", background: "transparent",
-          border: "1px solid " + C.gold + "60", borderRadius: GS.radius,
-          color: C.gold, fontSize: 14, fontWeight: 600, cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-        }}>
-          🔔 Terminerinnerungen aktivieren
-        </button>
+        <button onClick={onPushAktivieren} style={{ width: "100%", padding: "13px", background: "transparent", border: "1px solid " + C.gold + "60", borderRadius: GS.radius, color: C.gold, fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 8 }}>Terminerinnerungen aktivieren</button>
+      )}
+
+      {editTask && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 9998, display: "flex", alignItems: "flex-end" }} onClick={() => setEditTask(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.card, borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 480, margin: "0 auto" }}>
+            <input value={editTask.text} onChange={e => setEditTask(p => ({...p, text: e.target.value}))}
+              style={{ width: "100%", background: C.surface, border: "1px solid " + C.border, borderRadius: 12, padding: "13px", color: C.text, fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 16 }} />
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>Prioritaet</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {Object.entries(PRIO).map(([key, p]) => (
+                <button key={key} onClick={() => setEditTask(prev => ({...prev, prio: key}))} style={{ flex: 1, padding: "10px", borderRadius: 12, cursor: "pointer", border: "2px solid " + (editTask.prio === key ? p.color : C.border), background: editTask.prio === key ? p.bg : "transparent", color: editTask.prio === key ? p.color : C.muted, fontWeight: 800, fontSize: 15 }}>{p.label}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>Wann</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+              {[{id:"heute",l:"Heute"},{id:"diese-woche",l:"Diese Woche"},{id:"diesen-monat",l:"Diesen Monat"},{id:"irgendwann",l:"Irgendwann"}].map(w => (
+                <button key={w.id} onClick={() => setEditTask(p => ({...p, wann: w.id}))} style={{ padding: "8px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer", border: "1px solid " + (editTask.wann === w.id ? C.accent : C.border), background: editTask.wann === w.id ? C.accent + "20" : "transparent", color: editTask.wann === w.id ? C.accent : C.muted, fontWeight: editTask.wann === w.id ? 700 : 400 }}>{w.l}</button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setTasks(prev => prev.filter(x => x.id !== editTask.id)); setEditTask(null); }} style={{ flex: 1, padding: "13px", background: "transparent", border: "1px solid " + C.border, borderRadius: 12, color: C.muted, fontSize: 14, cursor: "pointer" }}>Loeschen</button>
+              <button onClick={() => { setTasks(prev => prev.map(x => x.id === editTask.id ? {...x, ...editTask} : x)); addMemory("bearbeitet: " + editTask.text); setEditTask(null); }} style={{ flex: 2, padding: "13px", background: C.accent, border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Speichern</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
-
 function isToday(ts) {
   if (!ts) return false;
   const d = new Date(ts);
@@ -1317,6 +1354,44 @@ function QuickAddTask({ tasks, setTasks, addMemory }) {
         cursor: "pointer",
       }}>+</button>
     </div>
+  );
+}
+
+function AutoPrioButton({ tasks, setTasks, addMemory }) {
+  const [loading, setLoading] = useState(false);
+  async function autoPrio() {
+    const offen = tasks.filter(t => !t.done);
+    if (offen.length === 0) return;
+    setLoading(true);
+    try {
+      const liste = offen.map((t, i) => (i+1) + ". [" + (t.wann||"irgendwann") + "][" + (t.kategorie||"sonstiges") + "] " + t.text).join("\n");
+      const reply = await askClaude(
+        "Du bist Verenas Familien-Operator. Priorisiere diese Aufgaben mit P1/P2/P3. P1=dringend/Gesundheit/Fristen, P2=diese Woche wichtig, P3=irgendwann. Antworte NUR als JSON-Array: [{\"nr\":1,\"prio\":\"p1\"},...]",
+        liste
+      );
+      const clean = reply.replace(/```json|```/g, "").trim();
+      const prioMap = JSON.parse(clean);
+      setTasks(prev => {
+        const updated = [...prev];
+        prioMap.forEach(item => {
+          const aufgabe = offen[item.nr - 1];
+          if (aufgabe) {
+            const idx = updated.findIndex(t => t.id === aufgabe.id);
+            if (idx !== -1) updated[idx] = { ...updated[idx], prio: item.prio };
+          }
+        });
+        return updated;
+      });
+      addMemory("KI priorisiert: " + offen.length + " Aufgaben");
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  }
+  return (
+    <button onClick={autoPrio} disabled={loading} style={{
+      background: "transparent", border: "1px solid " + C.gold + "60",
+      borderRadius: 20, padding: "6px 14px", color: loading ? C.muted : C.gold,
+      fontSize: 12, fontWeight: 600, cursor: loading ? "default" : "pointer", marginBottom: 8,
+    }}>{loading ? "KI priorisiert..." : "Auto P1/P2/P3"}</button>
   );
 }
 
