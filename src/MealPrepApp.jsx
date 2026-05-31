@@ -1155,6 +1155,30 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
 
             </div>
           )}
+
+          {/* Erledigte Aufgaben — zuruecksetzen moeglich */}
+          {tasks.filter(t => t.done).length > 0 && (
+            <div style={{ marginTop: 12, borderTop: "1px solid " + C.border, paddingTop: 12 }}>
+              <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
+                Erledigt ({tasks.filter(t => t.done).length})
+              </div>
+              {tasks.filter(t => t.done).slice(0, 5).map(t => (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid " + C.border, opacity: 0.5 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 7, background: C.sage, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff" }}>✓</div>
+                  <div style={{ flex: 1, fontSize: 14, textDecoration: "line-through" }}>{t.text}</div>
+                  <button onClick={() => setTasks(prev => prev.map(x => x.id === t.id ? {...x, done: false, doneAt: null} : x))} style={{
+                    background: "transparent", border: "1px solid " + C.border, borderRadius: 8,
+                    padding: "3px 8px", color: C.muted, fontSize: 11, cursor: "pointer"
+                  }}>↩</button>
+                </div>
+              ))}
+              {tasks.filter(t => t.done).length > 5 && (
+                <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "8px 0" }}>
+                  + {tasks.filter(t => t.done).length - 5} weitere erledigt
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
