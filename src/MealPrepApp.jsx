@@ -113,6 +113,9 @@ export default function VerenaOS() {
   const [memory, setMemory]     = useState(() => load("vos_memory", []));
   const [termine, setTermine]   = useState(() => { try { return JSON.parse(localStorage.getItem("vos_termine") || "[]"); } catch { return []; } });
   const [einkauf, setEinkauf]   = useState(() => { try { return JSON.parse(localStorage.getItem("vos_einkauf") || "[]"); } catch { return []; } });
+  const [vorrat, setVorrat]     = useState(() => { try { return JSON.parse(localStorage.getItem("vos_vorrat") || "[]"); } catch { return []; } });
+  const [tk, setTk]             = useState(() => { try { return JSON.parse(localStorage.getItem("vos_tk") || "[]"); } catch { return []; } });
+  const [chatHistory, setChatHistory] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_chat") || "[]"); } catch { return []; } });
   const [autopilot, setAutopilot] = useState(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
   const [screen, setScreen]     = useState("home");
@@ -126,6 +129,9 @@ export default function VerenaOS() {
   useEffect(() => save("vos_tasks", tasks), [tasks]);
   useEffect(() => save("vos_meal", meal), [meal]);
   useEffect(() => save("vos_memory", memory), [memory]);
+  useEffect(() => { try { localStorage.setItem("vos_termine", JSON.stringify(termine)); } catch {} }, [termine]);
+  useEffect(() => { try { localStorage.setItem("vos_einkauf", JSON.stringify(einkauf)); } catch {} }, [einkauf]);
+  useEffect(() => { try { localStorage.setItem("vos_chat", JSON.stringify(chatHistory.slice(-30))); } catch {} }, [chatHistory]);
 
   // -- Derived: visible tasks per mode ---------------------
   const maxVisible = mode === "DARK_RED" ? 3 : mode === "RED" ? 3 : mode === "YELLOW" ? 4 : 5;
@@ -380,8 +386,8 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 100px" }}>
         {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} />}
         {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
-        {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} />}
-        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} />}
+        {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} vorrat={vorrat} setVorrat={setVorrat} tk={tk} setTk={setTk} />}
+        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} />}
         {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
       </div>
 
@@ -1060,17 +1066,13 @@ function TaskRow({ task, index, onDone, onDelete }) {
 // -----------------------------------------------------------
 //  KUECHE SCREEN — TK + Vorrat + Wochenplan + Einkauf
 // -----------------------------------------------------------
-function KuecheScreen({ addMemory, mode, einkauf, setEinkauf }) {
+function KuecheScreen({ addMemory, mode, einkauf, setEinkauf, vorrat, setVorrat, tk, setTk }) {
   const [tab, setTab] = useState("woche");
-  const [tk, setTk] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_tk") || "[]"); } catch { return []; } });
-  const [vorrat, setVorrat] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_vorrat") || "[]"); } catch { return []; } });
   const [wochenplan, setWochenplan] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_wochenplan") || "null"); } catch { return null; } });
   const [loading, setLoading] = useState(false);
   const [newItem, setNewItem] = useState("");
   const [newVorrat, setNewVorrat] = useState("");
 
-  useEffect(() => { try { localStorage.setItem("vos_tk", JSON.stringify(tk)); } catch {} }, [tk]);
-  useEffect(() => { try { localStorage.setItem("vos_vorrat", JSON.stringify(vorrat)); } catch {} }, [vorrat]);
   useEffect(() => { try { localStorage.setItem("vos_wochenplan", JSON.stringify(wochenplan)); } catch {} }, [wochenplan]);
 
   const WOCHENTAGE = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
@@ -1460,13 +1462,11 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
 // -----------------------------------------------------------
 //  VOICE SCREEN -- KI-Kommandozentrale
 // -----------------------------------------------------------
-function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning, setScreen, setTermine, setEinkauf }) {
-  const [input, setInput]       = useState("");
-  const [messages, setMessages] = useState([{
-    role: "assistant",
-    text: "Bereit. Sag mir was du brauchst.\n\nBeispiele:\n- Milch leer\n- Heute schlimm\n- Was jetzt?\n- Lehrer anrufen\n- Ueberfordert"
-  }]);
-  const [loading, setLoading]   = useState(false);
+function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning, setScreen, setTermine, setEinkauf, setVorrat, setTk, chatHistory, setChatHistory }) {
+  const [input, setInput] = useState("");
+  const DEFAULT_MSG = { role: "assistant", text: "Bereit. Sag mir was du brauchst.\n- Milch leer\n- Termin eintragen\n- Was jetzt?\n- Vorrat: Nudeln hinzufuegen" };
+  const [messages, setMessages] = useState(chatHistory.length > 0 ? chatHistory : [DEFAULT_MSG]);
+  const [loading, setLoading] = useState(false);
   const bottomRef               = useRef();
 
   useEffect(() => {
@@ -1516,13 +1516,20 @@ Spezielle Aktionen (im Format [AKTION]) - IMMER einfuegen wenn relevant:
   Beispiel: "Arzt Timo am 5. Juni um 10 Uhr" -> [TERMIN:Arzt Timo|2026-06-05|10:00]
   Beispiel: "Elternabend naechste Woche" -> [TERMIN:Elternabend|${new Date(heute.getTime() + 7*86400000).toISOString().split("T")[0]}|]
 - [EINKAUF:artikel] IMMER wenn etwas fehlt oder gekauft werden soll
-  Beispiel: "Milch leer" -> [EINKAUF:Milch]`;
+  Beispiel: "Milch leer" -> [EINKAUF:Milch]
+- [VORRAT:artikel] wenn etwas in den Vorrat eingetragen werden soll
+  Beispiel: "trag Nudeln in den Vorrat ein" -> [VORRAT:Nudeln]
+- [TK:artikel] wenn etwas in den TK-Schrank eingetragen werden soll
+  Beispiel: "trag Hackfleisch ins TK ein" -> [TK:Hackfleisch]
+
+WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
+"trag Nudeln, Reis und Tomaten in den Vorrat" -> [VORRAT:Nudeln] [VORRAT:Reis] [VORRAT:Tomaten]`;
 
   async function send(text) {
     const msg = text || input.trim();
     if (!msg || loading) return;
     setInput("");
-    setMessages(prev => [...prev, { role: "user", text: msg }]);
+    setMessages(prev => { const updated = [...prev, { role: "user", text: msg }]; setChatHistory(updated); return updated; });
     setLoading(true);
 
     try {
@@ -1563,18 +1570,34 @@ Spezielle Aktionen (im Format [AKTION]) - IMMER einfuegen wenn relevant:
         cleanReply = cleanReply.replace(terminMatch[0], "").trim();
       }
 
-      // Einkauf-Erkennung (z.B. "Milch leer", "kauf Butter")
-      const einkaufMatch = reply.match(/\[EINKAUF:\s*([^\]]+?)\s*\]/);
-      if (einkaufMatch && setEinkauf) {
-        const artikel = einkaufMatch[1].trim();
-        setEinkauf(prev => [...prev, { id: Date.now() + 2, name: artikel, done: false }]);
-        addMemory("Einkauf: " + artikel);
-        cleanReply = cleanReply.replace(einkaufMatch[0], "").trim();
-      }
+      // Einkauf (alle Matches)
+      const einkaufMatches = [...cleanReply.matchAll(/\[EINKAUF:\s*([^\]]+?)\s*\]/g)];
+      einkaufMatches.forEach(m => {
+        if (setEinkauf) setEinkauf(prev => [...prev, { id: Date.now() + Math.random(), name: m[1].trim(), done: false }]);
+        addMemory("Einkauf: " + m[1].trim());
+        cleanReply = cleanReply.replace(m[0], "").trim();
+      });
 
-      setMessages(prev => [...prev, { role: "assistant", text: cleanReply }]);
+      // Vorrat (alle Matches)
+      const vorratMatches = [...cleanReply.matchAll(/\[VORRAT:\s*([^\]]+?)\s*\]/g)];
+      vorratMatches.forEach(m => {
+        if (setVorrat) setVorrat(prev => [...prev, { id: Date.now() + Math.random(), name: m[1].trim() }]);
+        addMemory("Vorrat: " + m[1].trim());
+        cleanReply = cleanReply.replace(m[0], "").trim();
+      });
+
+      // TK (alle Matches)
+      const tkMatches = [...cleanReply.matchAll(/\[TK:\s*([^\]]+?)\s*\]/g)];
+      tkMatches.forEach(m => {
+        if (setTk) setTk(prev => [...prev, { id: Date.now() + Math.random(), name: m[1].trim() }]);
+        addMemory("TK: " + m[1].trim());
+        cleanReply = cleanReply.replace(m[0], "").trim();
+      });
+
+      const newMsg = { role: "assistant", text: cleanReply };
+      setMessages(prev => { const updated = [...prev, newMsg]; setChatHistory(updated); return updated; });
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", text: "Verbindungsfehler." }]);
+      setMessages(prev => { const updated = [...prev, { role: "assistant", text: "Verbindungsfehler." }]; setChatHistory(updated); return updated; });
     }
     setLoading(false);
   }
