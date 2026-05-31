@@ -1731,7 +1731,7 @@ WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
     setLoading(false);
   }
 
-  const QUICK = ["Was jetzt?", "Ueberfordert", "Heute schlimm", "Was essen wir?"];
+  const QUICK = ["Was jetzt?", "Stress", "Essen?", "Hilfe"];
   const [bildLoading, setBildLoading] = useState(false);
   const bildInputRef = useRef();
 
@@ -1907,7 +1907,7 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
       </div>
 
       {/* Quick buttons */}
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 10 }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingBottom: 10 }}>
         {QUICK.map(q => (
           <button key={q} onClick={() => send(q)} style={{
             flexShrink: 0, background: C.surface, border: "1px solid " + C.border,
