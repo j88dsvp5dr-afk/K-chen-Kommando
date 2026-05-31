@@ -865,7 +865,7 @@ function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory,
   const [input, setInput]       = useState("");
   const [messages, setMessages] = useState([{
     role: "assistant",
-    text: "Bereit. Sag mir was du brauchst.\n\nBeispiele:\n- Milch leer\n- Heute schlimm\n- Was jetzt?\n- Lehrer anrufen\n- Ueberfordert""
+    text: "Bereit. Sag mir was du brauchst.\n\nBeispiele:\n- Milch leer\n- Heute schlimm\n- Was jetzt?\n- Lehrer anrufen\n- Ueberfordert"
   }]);
   const [loading, setLoading]   = useState(false);
   const bottomRef               = useRef();
