@@ -735,7 +735,7 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
         {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} onPushAktivieren={pushBenachrichtigungAnfragen} termine={termine} />}
         {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
         {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} vorrat={vorrat} setVorrat={setVorrat} tk={tk} setTk={setTk} />}
-        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} />}
+        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} vorlesen={vorlesen} sprichtGerade={sprichtGerade} spracheStoppen={spracheStoppen} sprachAusgabeAn={sprachAusgabeAn} toggleSprachausgabe={toggleSprachausgabe} />}
         {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
       </div>
 
@@ -1944,7 +1944,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
 // -----------------------------------------------------------
 //  VOICE SCREEN -- KI-Kommandozentrale
 // -----------------------------------------------------------
-function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning, setScreen, setTermine, setEinkauf, setVorrat, setTk, chatHistory, setChatHistory }) {
+function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning, setScreen, setTermine, setEinkauf, setVorrat, setTk, chatHistory, setChatHistory, vorlesen, sprichtGerade, spracheStoppen, sprachAusgabeAn, toggleSprachausgabe }) {
   const [input, setInput] = useState("");
   const DEFAULT_MSG = { role: "assistant", text: "Bereit. Sag mir was du brauchst.\n- Milch leer\n- Termin eintragen\n- Was jetzt?\n- Vorrat: Nudeln hinzufuegen" };
   const [messages, setMessages] = useState(chatHistory.length > 0 ? chatHistory : [DEFAULT_MSG]);
@@ -2081,6 +2081,7 @@ WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
 
       const newMsg = { role: "assistant", text: cleanReply };
       setMessages(prev => { const updated = [...prev, newMsg]; setChatHistory(updated); return updated; });
+      vorlesen(cleanReply);
     } catch {
       setMessages(prev => { const updated = [...prev, { role: "assistant", text: "Verbindungsfehler." }]; setChatHistory(updated); return updated; });
     }
@@ -2230,9 +2231,62 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
     }
   }
 
+  // -- Sprachausgabe --
+  const [sprichtGerade, setSprichtGerade] = useState(false);
+  const [sprachAusgabeAn, setSprachAusgabeAn] = useState(() => {
+    return localStorage.getItem("vos_sprache_an") !== "false";
+  });
+
+  function vorlesen(text) {
+    if (!sprachAusgabeAn) return;
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    // Aktionen entfernen
+    const sauber = text.replace(/\[.*?\]/g, "").replace(/
++/g, ". ").trim();
+    const utterance = new SpeechSynthesisUtterance(sauber);
+    utterance.lang = "de-DE";
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    // Deutsche Stimme bevorzugen
+    const stimmen = window.speechSynthesis.getVoices();
+    const deutsch = stimmen.find(s => s.lang === "de-DE") || stimmen.find(s => s.lang.startsWith("de"));
+    if (deutsch) utterance.voice = deutsch;
+    utterance.onstart = () => setSprichtGerade(true);
+    utterance.onend = () => setSprichtGerade(false);
+    utterance.onerror = () => setSprichtGerade(false);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function spracheStoppen() {
+    window.speechSynthesis.cancel();
+    setSprichtGerade(false);
+  }
+
+  function toggleSprachausgabe() {
+    const neu = !sprachAusgabeAn;
+    setSprachAusgabeAn(neu);
+    localStorage.setItem("vos_sprache_an", neu ? "true" : "false");
+  }
+
   return (
     <div style={{ paddingTop: 28, display: "flex", flexDirection: "column", height: "calc(100dvh - 160px)" }}>
-      <h2 style={{ margin: "0 0 20px", fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Frag mich</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Frag mich</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          {sprichtGerade && (
+            <button onClick={spracheStoppen} style={{
+              background: C.accent, border: "none", borderRadius: 20,
+              padding: "6px 12px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer"
+            }}>⏹ Stop</button>
+          )}
+          <button onClick={toggleSprachausgabe} style={{
+            background: "transparent", border: "1px solid " + C.border, borderRadius: 20,
+            padding: "6px 12px", color: sprachAusgabeAn ? C.sage : C.muted,
+            fontSize: 12, fontWeight: 600, cursor: "pointer"
+          }}>{sprachAusgabeAn ? "🔊 An" : "🔇 Aus"}</button>
+        </div>
+      </div>
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingBottom: 12 }}>
