@@ -1795,9 +1795,7 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
         vorratMatches.length > 0 ? vorratMatches.length + " Vorratsartikel" : "",
       ].filter(Boolean).join(", ");
 
-      const finalReply = cleanReply.trim() + (summary ? "
-
-Eingetragen: " + summary : "");
+      const finalReply = cleanReply.trim() + (summary ? "\n\nEingetragen: " + summary : "");
       setMessages(prev => { const u = [...prev, { role: "assistant", text: finalReply }]; setChatHistory(u); return u; });
 
     } catch(err) {
