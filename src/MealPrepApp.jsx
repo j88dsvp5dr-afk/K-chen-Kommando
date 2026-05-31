@@ -387,6 +387,39 @@ export default function VerenaOS() {
     setShowOnboarding(false);
   }
 
+  // -- PWA Service Worker + Push Notifications -----------
+  useEffect(() => {
+    // Service Worker registrieren
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").then(reg => {
+        console.log("SW registriert:", reg.scope);
+      }).catch(err => console.log("SW Fehler:", err));
+    }
+  }, []);
+
+  // Termine an Service Worker schicken fuer lokale Benachrichtigungen
+  useEffect(() => {
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "CHECK_TERMINE",
+        termine: termine,
+      });
+    }
+  }, [termine]);
+
+  async function pushBenachrichtigungAnfragen() {
+    if (!("Notification" in window)) {
+      alert("Dein Browser unterstuetzt keine Benachrichtigungen.");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      setWarning("Benachrichtigungen aktiviert! Du wirst an Termine erinnert.");
+    } else {
+      setWarning("Benachrichtigungen abgelehnt. Du kannst es in Safari-Einstellungen aendern.");
+    }
+  }
+
   // -- Cloud-Sync beim Start -----------
   const [syncStatus, setSyncStatus] = useState(null); // null | "syncing" | "ok" | "offline"
 
@@ -643,7 +676,7 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
 
       {/* -- Screen Content -- */}
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 100px" }}>
-        {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} />}
+        {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} onPushAktivieren={pushBenachrichtigungAnfragen} />}
         {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
         {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} vorrat={vorrat} setVorrat={setVorrat} tk={tk} setTk={setTk} />}
         {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} />}
@@ -788,7 +821,7 @@ function ModeButton({ mode, setMode, mc }) {
 // -----------------------------------------------------------
 //  HOME SCREEN
 // -----------------------------------------------------------
-function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, warning, setWarning, addMemory, maxVisible, autopilot, autopilotLoading, runAutopilot }) {
+function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, warning, setWarning, addMemory, maxVisible, autopilot, autopilotLoading, runAutopilot, onPushAktivieren }) {
   const isDark = mode === "DARK_RED";
 
   return (
@@ -889,6 +922,18 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
         <StatPill label="Erledigt heute" value={tasks.filter(t => t.done && isToday(t.doneAt)).length} />
         <StatPill label="Offen gesamt" value={tasks.filter(t => !t.done).length} />
       </div>
+
+      {/* Push aktivieren wenn noch nicht aktiv */}
+      {typeof Notification !== "undefined" && Notification.permission === "default" && (
+        <button onClick={onPushAktivieren} style={{
+          width: "100%", marginTop: 12, padding: "13px",
+          background: "transparent", border: "1px solid " + C.gold + "60",
+          borderRadius: 14, color: C.gold, fontSize: 14, fontWeight: 600,
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+        }}>
+          🔔 Terminerinnerungen aktivieren
+        </button>
+      )}
     </div>
   );
 }
