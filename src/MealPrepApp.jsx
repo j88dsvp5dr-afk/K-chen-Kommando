@@ -58,13 +58,43 @@ async function askClaude(systemPrompt, userMessage, history = []) {
 // -----------------------------------------------------------
 //  MAIN APP
 // -----------------------------------------------------------
+// -- Verena-Kontext: feste Muster die die KI kennt ----------
+const VERENA_KONTEXT = `
+Du bist Verenas persoenlicher Familien-Operator. Du kennst sie gut:
+
+FAMILIE:
+- Verena: arbeitet Di-Fr morgens (Teilzeit), Montag frei
+- Hanna: 12 Jahre, Schule
+- Timo: 10 Jahre, Schule, hatte kuerzlich Arzttermin
+- Paul: Partner
+- Donnerstag 17:00: Nachhilfe fuer Hanna + Timo (fixer Termin jede Woche)
+- Sonntag 18:00: Familien-Meeting
+
+ESSEN:
+- IMMER laktosefrei (Verena vertraegt keine Laktose)
+- Kindertauglich, einfach, max 30 Min
+- Donnerstag nach Nachhilfe: besonders wenig Zeit, max 15 Min
+
+HAUSHALT:
+- Sonntags: Brot vorbereiten fuer die Woche (Hanna schmiert, Timo belegt, Verena packt)
+- Waesche, Geschirrspueler, 5-Min Tidy sind Routinen
+
+PSYCHOLOGIE:
+- Verena startet stark aber verliert den Faden bei zu vielen Aufgaben
+- Max 3-5 Aufgaben sichtbar
+- Keine Schuldgefuehle erzeugen
+- Realitaet vor Perfektion
+`;
+
 export default function VerenaOS() {
   // -- State ----------------------------------------------
   const [mode, setMode]         = useState(() => load("vos_mode", "GREEN"));
   const [tasks, setTasks]       = useState(() => load("vos_tasks", []));
   const [meal, setMeal]         = useState(() => load("vos_meal", null));
   const [memory, setMemory]     = useState(() => load("vos_memory", []));
-  const [screen, setScreen]     = useState("home"); // home | tasks | food | voice | memory
+  const [autopilot, setAutopilot] = useState(null);  // {fokus, essen, warnung, modus}
+  const [autopilotLoading, setAutopilotLoading] = useState(false);
+  const [screen, setScreen]     = useState("home");
   const [warning, setWarning]   = useState(null);
 
   // -- Persist ---------------------------------------------
@@ -84,6 +114,95 @@ export default function VerenaOS() {
     setMemory(prev => [entry, ...prev].slice(0, 100));
     return entry;
   }, []);
+
+  // -- Morgen-Autopilot: laeuft einmal pro Tag beim Oeffnen --
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const lastRun = localStorage.getItem("vos_autopilot_date");
+    if (lastRun === today) {
+      // Bereits heute gelaufen - gespeichertes Ergebnis laden
+      const saved = localStorage.getItem("vos_autopilot_result");
+      if (saved) { try { setAutopilot(JSON.parse(saved)); } catch {} }
+      return;
+    }
+    // Erster Aufruf heute - Autopilot starten
+    runAutopilot();
+  }, []);
+
+  async function runAutopilot() {
+    setAutopilotLoading(true);
+    try {
+      const now = new Date();
+      const wochentage = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+      const wochentag = wochentage[now.getDay()];
+      const datum = now.toLocaleDateString("de-DE", { day: "numeric", month: "long" });
+      const offeneAufgaben = tasks.filter(t => !t.done).map(t => t.text).join(", ") || "keine";
+      const termine = (() => {
+        try {
+          const t = JSON.parse(localStorage.getItem("vos_termine") || "[]");
+          const heute = new Date(); heute.setHours(0,0,0,0);
+          return t.filter(x => {
+            const d = new Date(x.datum); d.setHours(0,0,0,0);
+            const diff = Math.round((d - heute) / 86400000);
+            return diff >= 0 && diff <= 3;
+          }).map(x => x.title + (x.time ? " um " + x.time : "") + " (" + (
+            Math.round((new Date(x.datum) - heute) / 86400000) === 0 ? "heute" :
+            Math.round((new Date(x.datum) - heute) / 86400000) === 1 ? "morgen" :
+            "in " + Math.round((new Date(x.datum) - heute) / 86400000) + " Tagen"
+          ) + ")").join(", ") || "keine";
+        } catch { return "keine"; }
+      })();
+
+      const prompt = `${VERENA_KONTEXT}
+
+HEUTE: ${wochentag}, ${datum}
+Offene Aufgaben: ${offeneAufgaben}
+Termine naechste 3 Tage: ${termine}
+
+Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
+{
+  "fokus": "Die eine wichtigste Aufgabe heute (max 8 Worte)",
+  "essen": "Heutiges Abendessen (laktosefrei, kindertauglich, mit Zeitangabe)",
+  "warnung": "Wichtigste Warnung oder null wenn nichts dringend",
+  "modus": "GREEN oder YELLOW oder RED je nach Tagesbelastung",
+  "begruendung": "1 kurzer Satz warum dieser Plan"
+}`;
+
+      const reply = await askClaude("Antworte nur als reines JSON ohne Markdown.", prompt);
+      const clean = reply.replace(/```json|```/g, "").trim();
+      const data = JSON.parse(clean);
+
+      setAutopilot(data);
+      localStorage.setItem("vos_autopilot_result", JSON.stringify(data));
+      localStorage.setItem("vos_autopilot_date", new Date().toDateString());
+
+      // Modus automatisch setzen wenn KI RED empfiehlt
+      if (data.modus === "RED" && mode === "GREEN") setMode("RED");
+      if (data.modus === "YELLOW" && mode === "GREEN") setMode("YELLOW");
+
+      // Warnung setzen
+      if (data.warnung) setWarning(data.warnung);
+
+      // Essen vorbelegen wenn noch keins
+      if (!meal && data.essen) setMeal(data.essen);
+
+      // Fokus-Aufgabe hinzufuegen wenn nicht schon vorhanden
+      if (data.fokus) {
+        const exists = tasks.some(t => t.text.toLowerCase().includes(data.fokus.toLowerCase().slice(0, 10)));
+        if (!exists) {
+          setTasks(prev => [
+            { id: Date.now(), text: data.fokus, priority: "high", done: false, createdAt: Date.now(), autoAdded: true },
+            ...prev
+          ]);
+        }
+      }
+
+      addMemory("Autopilot: " + data.begruendung);
+    } catch (e) {
+      console.error("Autopilot error:", e);
+    }
+    setAutopilotLoading(false);
+  }
 
   return (
     <div style={{
@@ -111,7 +230,7 @@ export default function VerenaOS() {
 
       {/* -- Screen Content -- */}
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 100px" }}>
-        {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} />}
+        {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} />}
         {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
         {screen === "food"    && <FoodScreen meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />}
         {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} />}
@@ -192,27 +311,52 @@ function ModeButton({ mode, setMode, mc }) {
 // -----------------------------------------------------------
 //  HOME SCREEN
 // -----------------------------------------------------------
-function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, warning, setWarning, addMemory, maxVisible }) {
+function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, warning, setWarning, addMemory, maxVisible, autopilot, autopilotLoading, runAutopilot }) {
   const isDark = mode === "DARK_RED";
 
   return (
     <div style={{ paddingTop: 28 }}>
       {/* Hero */}
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>
           {new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}
         </div>
         <h1 style={{
-          fontSize: isDark ? 28 : 36,
+          fontSize: isDark ? 28 : 32,
           fontWeight: 900,
           lineHeight: 1.1,
           margin: 0,
           letterSpacing: -1,
           color: isDark ? C.danger : C.text,
         }}>
-          {isDark ? "⚫ Nur das Noetigste." : mode === "RED" ? "Ich uebernehme jetzt." : mode === "YELLOW" ? "Fokus." : "Wie laeuft's?"}
+          {isDark ? "Nur das Noetigste." : mode === "RED" ? "Ich uebernehme." : mode === "YELLOW" ? "Fokus." : "Guten Morgen."}
         </h1>
       </div>
+
+      {/* Autopilot Banner */}
+      {autopilotLoading && (
+        <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: 16, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ fontSize: 13, color: C.muted }}>Autopilot plant deinen Tag...</div>
+        </div>
+      )}
+      {autopilot && !autopilotLoading && (
+        <div style={{
+          background: "linear-gradient(135deg, #1a1a2e 0%, #1E1E1E 100%)",
+          border: "1px solid " + C.accent + "40",
+          borderRadius: 18, padding: "16px", marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 11, color: C.accent, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>
+            Autopilot aktiv
+          </div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+            {autopilot.begruendung}
+          </div>
+          <button onClick={() => { localStorage.removeItem("vos_autopilot_date"); runAutopilot(); }} style={{
+            marginTop: 10, background: "transparent", border: "1px solid " + C.border,
+            borderRadius: 8, padding: "5px 10px", color: C.muted, fontSize: 11, cursor: "pointer"
+          }}>Neu planen</button>
+        </div>
+      )}
 
       {/* Warning Banner */}
       {warning && (
