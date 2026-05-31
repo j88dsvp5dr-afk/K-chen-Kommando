@@ -2242,8 +2242,7 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     // Aktionen entfernen
-    const sauber = text.replace(/\[.*?\]/g, "").replace(/
-+/g, ". ").trim();
+    const sauber = text.replace(/\[.*?\]/g, "").replace(/[\n]+/g, ". ").trim();
     const utterance = new SpeechSynthesisUtterance(sauber);
     utterance.lang = "de-DE";
     utterance.rate = 1.0;
