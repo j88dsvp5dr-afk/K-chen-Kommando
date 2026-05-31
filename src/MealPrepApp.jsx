@@ -1698,6 +1698,115 @@ WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
   }
 
   const QUICK = ["Was jetzt?", "Ueberfordert", "Heute schlimm", "Was essen wir?"];
+  const [bildLoading, setBildLoading] = useState(false);
+  const bildInputRef = useRef();
+
+  async function bildAnalysieren(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setBildLoading(true);
+
+    try {
+      // Bild zu base64 konvertieren
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const mediaType = file.type || "image/jpeg";
+
+      // Nachricht anzeigen
+      const userMsg = { role: "user", text: "📷 Bild hochgeladen — analysiere..." };
+      setMessages(prev => { const u = [...prev, userMsg]; setChatHistory(u); return u; });
+
+      // An Claude senden mit Vision
+      const res = await fetch("/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 1000,
+          system: `Du bist Verenas Familien-Operator. Analysiere das Bild und extrahiere ALLE relevanten Informationen.
+
+Heute: ${new Date().toISOString().split("T")[0]} (${["So","Mo","Di","Mi","Do","Fr","Sa"][new Date().getDay()]})
+
+Erkenne automatisch was im Bild ist:
+- Kalender/Termine -> gib [TERMIN:titel|datum|uhrzeit] fuer jeden Termin aus
+- Einkaufsliste/Notizen -> gib [EINKAUF:artikel] fuer jeden Artikel
+- Aufgabenliste -> gib [AUFGABE:text] fuer jede Aufgabe  
+- Medikamente/Vorrat -> gib [VORRAT:artikel]
+
+Antworte zuerst kurz was du siehst, dann die Aktionen.
+Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+              { type: "text", text: "Was ist auf diesem Bild? Extrahiere alle Termine, Aufgaben und Einkaufsartikel." }
+            ]
+          }]
+        })
+      });
+
+      const data = await res.json();
+      const reply = data.content?.[0]?.text || "Konnte Bild nicht lesen.";
+
+      // Aktionen parsen (gleiche Logik wie bei Text)
+      let cleanReply = reply;
+
+      // Termine
+      const terminMatches = [...reply.matchAll(/\[TERMIN:\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*([^\]]*?)\s*\]/g)];
+      terminMatches.forEach(m => {
+        const neuerTermin = { id: Date.now() + Math.random(), title: m[1].trim(), datum: m[2].trim() || new Date().toISOString().split("T")[0], time: m[3].trim(), note: "Aus Bild erkannt" };
+        if (setTermine) setTermine(prev => [...prev, neuerTermin].sort((a,b) => new Date(a.datum) - new Date(b.datum)));
+        addMemory("Termin aus Bild: " + m[1].trim());
+        cleanReply = cleanReply.replace(m[0], "").trim();
+      });
+
+      // Aufgaben
+      const aufgabeMatches = [...reply.matchAll(/\[AUFGABE:\s*([^\]]+?)\s*\]/g)];
+      aufgabeMatches.forEach(m => {
+        setTasks(prev => [...prev, { id: Date.now() + Math.random(), text: m[1].trim(), wann: "diese-woche", kategorie: "sonstiges", priority: "normal", done: false, createdAt: Date.now() }]);
+        addMemory("Aufgabe aus Bild: " + m[1].trim());
+        cleanReply = cleanReply.replace(m[0], "").trim();
+      });
+
+      // Einkauf
+      const einkaufMatches = [...reply.matchAll(/\[EINKAUF:\s*([^\]]+?)\s*\]/g)];
+      einkaufMatches.forEach(m => {
+        if (setEinkauf) setEinkauf(prev => [...prev, { id: Date.now() + Math.random(), name: m[1].trim(), done: false }]);
+        addMemory("Einkauf aus Bild: " + m[1].trim());
+        cleanReply = cleanReply.replace(m[0], "").trim();
+      });
+
+      // Vorrat
+      const vorratMatches = [...reply.matchAll(/\[VORRAT:\s*([^\]]+?)\s*\]/g)];
+      vorratMatches.forEach(m => {
+        if (setVorrat) setVorrat(prev => [...prev, { id: Date.now() + Math.random(), name: m[1].trim() }]);
+        cleanReply = cleanReply.replace(m[0], "").trim();
+      });
+
+      const summary = [
+        terminMatches.length > 0 ? terminMatches.length + " Termin(e) eingetragen" : "",
+        aufgabeMatches.length > 0 ? aufgabeMatches.length + " Aufgabe(n) hinzugefuegt" : "",
+        einkaufMatches.length > 0 ? einkaufMatches.length + " Einkaufsartikel" : "",
+        vorratMatches.length > 0 ? vorratMatches.length + " Vorratsartikel" : "",
+      ].filter(Boolean).join(", ");
+
+      const finalReply = cleanReply.trim() + (summary ? "
+
+Eingetragen: " + summary : "");
+      setMessages(prev => { const u = [...prev, { role: "assistant", text: finalReply }]; setChatHistory(u); return u; });
+
+    } catch(err) {
+      setMessages(prev => { const u = [...prev, { role: "assistant", text: "Fehler beim Lesen des Bildes." }]; setChatHistory(u); return u; });
+    }
+    setBildLoading(false);
+    // Input zuruecksetzen
+    if (bildInputRef.current) bildInputRef.current.value = "";
+  }
 
   // -- Spracherkennung --
   const [hoert, setHoert] = useState(false);
@@ -1769,18 +1878,34 @@ WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 10 }}>
         {QUICK.map(q => (
           <button key={q} onClick={() => send(q)} style={{
-            flexShrink: 0,
-            background: C.surface,
-            border: `1px solid ${C.border}`,
-            borderRadius: 20,
-            padding: "7px 14px",
-            color: C.text,
-            fontSize: 13,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
+            flexShrink: 0, background: C.surface, border: "1px solid " + C.border,
+            borderRadius: 20, padding: "7px 14px", color: C.text,
+            fontSize: 13, cursor: "pointer", whiteSpace: "nowrap",
           }}>{q}</button>
         ))}
       </div>
+
+      {/* Foto / Bild hochladen */}
+      <label style={{
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        width: "100%", padding: "13px", marginBottom: 10,
+        background: bildLoading ? C.border : C.surface,
+        border: "1px solid " + C.border, borderRadius: 16,
+        color: bildLoading ? C.muted : C.text, fontWeight: 600,
+        fontSize: 15, cursor: bildLoading ? "default" : "pointer",
+        boxSizing: "border-box",
+      }}>
+        {bildLoading ? "KI liest Bild..." : "📷 Foto / Screenshot einlesen"}
+        <input
+          ref={bildInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={bildAnalysieren}
+          disabled={bildLoading}
+          style={{ display: "none" }}
+        />
+      </label>
 
       {/* Mikrofon-Knopf gross */}
       {!hoert ? (
