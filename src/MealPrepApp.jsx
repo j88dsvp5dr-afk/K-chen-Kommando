@@ -2800,6 +2800,13 @@ function Sonntagsrueckblick({ tasks, termine, addMemory }) {
 
   const istSonntag = new Date().getDay() === 0;
 
+  // Automatisch generieren wenn Sonntag und noch kein Rueckblick heute
+  useEffect(() => {
+    if (istSonntag && !rueckblick) {
+      generieren();
+    }
+  }, []);
+
   async function generieren() {
     setLoading(true);
     try {
