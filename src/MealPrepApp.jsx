@@ -966,7 +966,19 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
   const [quickVal, setQuickVal] = useState("");
   const [quickWann, setQuickWann] = useState("diese-woche");
   const [quickKat, setQuickKat] = useState("sonstiges");
-  const offeneAufgaben = tasks.filter(t => !t.done);
+  const WANN_ORDER = { "heute": 0, "diese-woche": 1, "diesen-monat": 2, "irgendwann": 3 };
+  const KAT_ORDER = { "kinder": 0, "behoerde": 1, "arbeit": 2, "haushalt": 3, "sonstiges": 4 };
+  const offeneAufgaben = tasks.filter(t => !t.done).sort((a, b) => {
+    // High priority zuerst
+    if (a.priority === "high" && b.priority !== "high") return -1;
+    if (b.priority === "high" && a.priority !== "high") return 1;
+    // Dann nach Wann
+    const wA = WANN_ORDER[a.wann || "irgendwann"];
+    const wB = WANN_ORDER[b.wann || "irgendwann"];
+    if (wA !== wB) return wA - wB;
+    // Dann nach Kategorie
+    return (KAT_ORDER[a.kategorie || "sonstiges"]) - (KAT_ORDER[b.kategorie || "sonstiges"]);
+  });
   const isDark = mode === "DARK_RED";
 
   return (
@@ -1103,8 +1115,8 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
               </div>
 
               {/* Aufgabenliste */}
-              {offeneAufgaben.slice(0, maxVisible).map((t, i) => (
-                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < offeneAufgaben.slice(0,maxVisible).length-1 ? "1px solid " + C.border : "none" }}>
+              {offeneAufgaben.map((t, i) => (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < offeneAufgaben.length-1 ? "1px solid " + C.border : "none" }}>
                   <button onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? {...x, done: true, doneAt: Date.now()} : x)); addMemory("✓ " + t.text); beobachte("aufgabe_erledigt", {kategorie: t.kategorie}); }} style={{
                     width: 26, height: 26, borderRadius: 8, border: "2px solid " + (i === 0 ? C.accent : C.border),
                     background: "transparent", cursor: "pointer", flexShrink: 0,
@@ -1116,11 +1128,7 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
                   <button onClick={() => setTasks(prev => prev.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>x</button>
                 </div>
               ))}
-              {offeneAufgaben.length > maxVisible && (
-                <div style={{ textAlign: "center", padding: "10px 0 0", fontSize: 13, color: C.muted }}>
-                  + {offeneAufgaben.length - maxVisible} weitere versteckt
-                </div>
-              )}
+
             </div>
           )}
         </div>
