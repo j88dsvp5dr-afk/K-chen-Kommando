@@ -1,5 +1,32 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
+// Globale CSS-Injektion fuer bessere Schrift + Touch
+const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
+  
+  body, * {
+    font-family: 'DM Sans', -apple-system, sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  button { touch-action: manipulation; }
+  
+  input, textarea {
+    font-size: 16px !important;
+  }
+  
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+`;
+
+// Style-Tag einmal injizieren
+if (typeof document !== "undefined" && !document.getElementById("vos-styles")) {
+  const style = document.createElement("style");
+  style.id = "vos-styles";
+  style.textContent = GLOBAL_CSS;
+  document.head.appendChild(style);
+}
+
 // -----------------------------------------------------------
 //  VERENA OS -- Familien-Operator
 //  Architektur: 4 Modi - KI-Herz - Zero Mental Drop
@@ -7,16 +34,32 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // -- Farben & Design ----------------------------------------
 const C = {
-  bg:      "#0D0D0D",
-  surface: "#161616",
-  card:    "#1E1E1E",
-  border:  "#2A2A2A",
-  text:    "#F0EDE8",
-  muted:   "#6B6560",
+  bg:      "#080808",
+  surface: "#111111",
+  card:    "#181818",
+  border:  "#252525",
+  text:    "#F2EEE8",
+  muted:   "#5A5550",
   accent:  "#E8552A",
   gold:    "#C9A04A",
-  sage:    "#5C7A52",
+  sage:    "#4A6B42",
   danger:  "#C0392B",
+  subtle:  "#1D1D1D",
+};
+
+// Globale Styles
+const GS = {
+  // Touch-optimierte Groessen fuer iPhone
+  touchTarget: 52,       // Min Touch-Target iOS HIG
+  fontBase: 16,          // Basis-Schriftgroesse
+  fontLarge: 18,         // Grosse Schrift
+  fontSmall: 13,         // Kleine Schrift
+  fontTiny: 11,          // Labels
+  radius: 18,            // Standard Border-Radius
+  radiusSm: 12,          // Kleiner Radius
+  radiusLg: 24,          // Grosser Radius
+  pad: 20,               // Standard Padding
+  gap: 12,               // Standard Gap
 };
 
 const MODE_CONFIG = {
@@ -832,11 +875,11 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
           {new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}
         </div>
         <h1 style={{
-          fontSize: isDark ? 28 : 32,
+          fontSize: isDark ? 32 : 38,
           fontWeight: 900,
-          lineHeight: 1.1,
+          lineHeight: 1.05,
           margin: 0,
-          letterSpacing: -1,
+          letterSpacing: -1.5,
           color: isDark ? C.danger : C.text,
         }}>
           {isDark ? "Nur das Noetigste." : mode === "RED" ? "Ich uebernehme." : mode === "YELLOW" ? "Fokus." : "Guten Morgen."}
@@ -957,22 +1000,17 @@ function FocusCard({ task, onDone }) {
       <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
         Jetzt
       </div>
-      <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, marginBottom: 16 }}>
+      <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.3, marginBottom: 18 }}>
         {task.text}
       </div>
       {task.note && (
-        <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>{task.note}</div>
+        <div style={{ fontSize: 14, color: C.muted, marginBottom: 16 }}>{task.note}</div>
       )}
       <button onClick={onDone} style={{
-        background: C.accent,
-        border: "none",
-        borderRadius: 14,
-        padding: "13px 20px",
-        color: "#fff",
-        fontWeight: 800,
-        fontSize: 16,
-        cursor: "pointer",
-        width: "100%",
+        background: C.accent, border: "none", borderRadius: GS.radius,
+        padding: "16px 20px", color: "#fff", fontWeight: 800,
+        fontSize: 17, cursor: "pointer", width: "100%",
+        minHeight: GS.touchTarget,
       }}>
         ✓ Erledigt
       </button>
@@ -983,24 +1021,18 @@ function FocusCard({ task, onDone }) {
 function MiniTask({ task, onDone }) {
   return (
     <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      padding: "12px 0",
-      borderBottom: `1px solid ${C.border}`,
+      display: "flex", alignItems: "center", gap: 14,
+      padding: "14px 0", borderBottom: "1px solid " + C.border,
     }}>
       <button onClick={onDone} style={{
-        width: 24,
-        height: 24,
-        borderRadius: 8,
-        border: `2px solid ${C.border}`,
-        background: "transparent",
-        cursor: "pointer",
-        flexShrink: 0,
+        width: 28, height: 28, borderRadius: 9,
+        border: "2px solid " + C.border,
+        background: "transparent", cursor: "pointer", flexShrink: 0,
+        minWidth: 28,
       }} />
-      <div style={{ fontSize: 15, color: C.text }}>{task.text}</div>
+      <div style={{ fontSize: 16, color: C.text, lineHeight: 1.3 }}>{task.text}</div>
       {task.priority === "high" && (
-        <div style={{ marginLeft: "auto", fontSize: 11, color: C.accent, fontWeight: 700 }}>!</div>
+        <div style={{ marginLeft: "auto", fontSize: 12, color: C.accent, fontWeight: 800 }}>!</div>
       )}
     </div>
   );
@@ -1122,15 +1154,11 @@ function QuickAddTask({ tasks, setTasks, addMemory }) {
 function StatPill({ label, value }) {
   return (
     <div style={{
-      flex: 1,
-      background: C.surface,
-      border: `1px solid ${C.border}`,
-      borderRadius: 14,
-      padding: "14px",
-      textAlign: "center",
+      flex: 1, background: C.surface, border: "1px solid " + C.border,
+      borderRadius: GS.radius, padding: "16px 12px", textAlign: "center",
     }}>
-      <div style={{ fontSize: 24, fontWeight: 900, color: C.text }}>{value}</div>
-      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{label}</div>
+      <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: -1 }}>{value}</div>
+      <div style={{ fontSize: 12, color: C.muted, marginTop: 3, fontWeight: 500 }}>{label}</div>
     </div>
   );
 }
@@ -1244,7 +1272,7 @@ Antworte NUR mit nummerierten Zeilennummern der Aufgaben in Prioritaetsreihenfol
   return (
     <div style={{ paddingTop: 28 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Aufgaben</h2>
+        <h2 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Aufgaben</h2>
         <button onClick={aiPrioritize} disabled={generating} style={{
           background: "transparent",
           border: `1px solid ${C.border}`,
@@ -1509,7 +1537,7 @@ vorhanden=true wenn alle Hauptzutaten im TK/Vorrat sind.`
 
   return (
     <div style={{ paddingTop: 28 }}>
-      <h2 style={{ margin: "0 0 20px", fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Kueche</h2>
+      <h2 style={{ margin: "0 0 20px", fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Kueche</h2>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto" }}>
@@ -1735,7 +1763,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
 
   return (
     <div style={{ paddingTop: 28 }}>
-      <h2 style={{ margin: "0 0 24px", fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Essen & Einkauf</h2>
+      <h2 style={{ margin: "0 0 24px", fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Essen & Einkauf</h2>
 
       {/* Meal Section */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "18px", marginBottom: 16 }}>
@@ -2119,7 +2147,7 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
 
   return (
     <div style={{ paddingTop: 28, display: "flex", flexDirection: "column", height: "calc(100dvh - 160px)" }}>
-      <h2 style={{ margin: "0 0 20px", fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Frag mich</h2>
+      <h2 style={{ margin: "0 0 20px", fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Frag mich</h2>
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingBottom: 12 }}>
@@ -2293,7 +2321,7 @@ function TermineScreen({ addMemory, setWarning, tasks, setTasks, termine, setTer
   return (
     <div style={{ paddingTop: 28 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Termine</h2>
+        <h2 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Termine</h2>
         <button onClick={() => setShowForm(s => !s)} style={{
           background: showForm ? C.border : C.accent, border: "none",
           borderRadius: 12, padding: "8px 16px", color: "#fff",
@@ -2377,7 +2405,7 @@ function MemoryScreen({ memory, setMemory }) {
   return (
     <div style={{ paddingTop: 28 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Gedaechtnis</h2>
+        <h2 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: -1.2 }}>Gedaechtnis</h2>
         {memory.length > 0 && (
           <button onClick={() => setMemory([])} style={{
             background: "transparent", border: `1px solid ${C.border}`, borderRadius: 10,
@@ -2426,33 +2454,26 @@ function BottomNav({ screen, setScreen }) {
 
   return (
     <div style={{
-      position: "fixed",
-      bottom: 0,
-      left: "50%",
-      transform: "translateX(-50%)",
-      width: "100%",
-      maxWidth: 480,
-      background: C.surface,
-      borderTop: `1px solid ${C.border}`,
+      position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
+      width: "100%", maxWidth: 480,
+      background: C.bg + "ee",
+      backdropFilter: "blur(20px)",
+      WebkitBackdropFilter: "blur(20px)",
+      borderTop: "1px solid " + C.border,
       display: "flex",
-      paddingBottom: "env(safe-area-inset-bottom, 8px)",
+      paddingBottom: "env(safe-area-inset-bottom, 12px)",
     }}>
       {items.map(item => (
         <button key={item.id} onClick={() => setScreen(item.id)} style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 3,
-          padding: "12px 4px 8px",
-          background: "transparent",
-          border: "none",
+          flex: 1, display: "flex", flexDirection: "column",
+          alignItems: "center", gap: 4,
+          padding: "14px 4px 10px",
+          background: "transparent", border: "none",
           color: screen === item.id ? C.accent : C.muted,
-          cursor: "pointer",
-          fontSize: 0,
+          cursor: "pointer", transition: "color 0.15s",
         }}>
-          <span style={{ fontSize: 20 }}>{item.icon}</span>
-          <span style={{ fontSize: 10, letterSpacing: 0.5 }}>{item.label}</span>
+          <span style={{ fontSize: 22, lineHeight: 1 }}>{item.icon}</span>
+          <span style={{ fontSize: 10, letterSpacing: 0.3, fontWeight: screen === item.id ? 700 : 400 }}>{item.label}</span>
         </button>
       ))}
     </div>
