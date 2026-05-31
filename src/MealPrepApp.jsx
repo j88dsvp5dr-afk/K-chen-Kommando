@@ -379,7 +379,7 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
         {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} />}
         {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
         {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} />}
-        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} />}
+        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} />}
         {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} />}
       </div>
 
@@ -1460,7 +1460,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
 // -----------------------------------------------------------
 //  VOICE SCREEN -- KI-Kommandozentrale
 // -----------------------------------------------------------
-function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning }) {
+function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning, setScreen }) {
   const [input, setInput]       = useState("");
   const [messages, setMessages] = useState([{
     role: "assistant",
@@ -1489,7 +1489,9 @@ Regeln:
 
 Spezielle Aktionen (im Format [AKTION]):
 - [MODUS:RED] wenn du Modus wechseln empfiehlst
-- [AUFGABE:text] wenn du eine neue Aufgabe hinzufuegst`;
+- [AUFGABE:text] wenn du eine neue Aufgabe hinzufuegst
+- [TERMIN:titel|datum|uhrzeit] wenn ein Termin erwaehnt wird (datum als YYYY-MM-DD, uhrzeit als HH:MM oder leer)
+  Beispiel: [TERMIN:Arzt Timo|2024-06-05|10:00] oder [TERMIN:Elternabend|2024-06-10|]`;
 
   async function send(text) {
     const msg = text || input.trim();
@@ -1511,10 +1513,31 @@ Spezielle Aktionen (im Format [AKTION]):
       }
       const taskMatch = reply.match(/\[AUFGABE:(.+?)\]/);
       if (taskMatch) {
-        const t = { id: Date.now(), text: taskMatch[1], done: false, priority: "high", createdAt: Date.now() };
+        const t = { id: Date.now(), text: taskMatch[1], done: false, priority: "high", wann: "diese-woche", kategorie: "sonstiges", createdAt: Date.now() };
         setTasks(prev => [...prev, t]);
         cleanReply = cleanReply.replace(taskMatch[0], "").trim();
-        addMemory(`+ ${taskMatch[1]}`);
+        addMemory("+ " + taskMatch[1]);
+      }
+
+      // Termin-Erkennung
+      const terminMatch = reply.match(/\[TERMIN:([^|]+)\|([^|]*)\|([^\]]*)\]/);
+      if (terminMatch) {
+        const [, titel, datum, uhrzeit] = terminMatch;
+        const neuerTermin = {
+          id: Date.now() + 1,
+          title: titel.trim(),
+          datum: datum.trim() || new Date().toISOString().split("T")[0],
+          time: uhrzeit.trim(),
+          note: "Ueber KI eingetragen",
+        };
+        try {
+          const bestehende = JSON.parse(localStorage.getItem("vos_termine") || "[]");
+          const aktualisiert = [...bestehende, neuerTermin].sort((a, b) => new Date(a.datum) - new Date(b.datum));
+          localStorage.setItem("vos_termine", JSON.stringify(aktualisiert));
+          addMemory("Termin: " + titel.trim() + (datum ? " am " + datum : ""));
+          setWarning("Termin gespeichert: " + titel.trim());
+        } catch {}
+        cleanReply = cleanReply.replace(terminMatch[0], "").trim();
       }
 
       setMessages(prev => [...prev, { role: "assistant", text: cleanReply }]);
