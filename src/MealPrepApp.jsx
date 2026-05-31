@@ -233,22 +233,31 @@ export default function VerenaOS() {
   }, []);
 
   // -- Export / Import / Onboarding -------------------------
-  function doExport() {
-    const data = {
+  function getBackupData() {
+    return {
       version: 1,
-      tasks:    JSON.parse(localStorage.getItem("vos_tasks") || "[]"),
-      termine:  JSON.parse(localStorage.getItem("vos_termine") || "[]"),
-      tk:       JSON.parse(localStorage.getItem("vos_tk") || "[]"),
-      vorrat:   JSON.parse(localStorage.getItem("vos_vorrat") || "[]"),
-      wochenplan: JSON.parse(localStorage.getItem("vos_wochenplan") || "null"),
-      einkauf:  JSON.parse(localStorage.getItem("vos_einkauf") || "[]"),
       ts: new Date().toISOString(),
+      tasks:      JSON.parse(localStorage.getItem("vos_tasks") || "[]"),
+      termine:    JSON.parse(localStorage.getItem("vos_termine") || "[]"),
+      tk:         JSON.parse(localStorage.getItem("vos_tk") || "[]"),
+      vorrat:     JSON.parse(localStorage.getItem("vos_vorrat") || "[]"),
+      wochenplan: JSON.parse(localStorage.getItem("vos_wochenplan") || "null"),
+      einkauf:    JSON.parse(localStorage.getItem("vos_einkauf") || "[]"),
+      ki_memory:  JSON.parse(localStorage.getItem("vos_ki_memory") || "{}"),
     };
+  }
+
+  function doExport() {
+    const data = getBackupData();
+    // Intern speichern
+    localStorage.setItem("vos_backup_intern", JSON.stringify(data));
+    localStorage.setItem("vos_last_backup", new Date().toDateString());
+    // Datei herunterladen
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "verena-os-backup-" + new Date().toISOString().slice(0,10) + ".json";
+    a.download = "verena-os-backup.json";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -288,36 +297,29 @@ export default function VerenaOS() {
   useEffect(() => {
     beobachte("app_geoeffnet");
 
-    // Automatisches Tages-Backup
+    // Automatisches internes Backup
     const heute = new Date().toDateString();
     const letztesBackup = localStorage.getItem("vos_last_backup");
     if (letztesBackup !== heute) {
-      // Kurz warten bis alle States geladen sind
       setTimeout(() => {
         try {
           const data = {
             version: 1,
             ts: new Date().toISOString(),
-            tasks:    JSON.parse(localStorage.getItem("vos_tasks") || "[]"),
-            termine:  JSON.parse(localStorage.getItem("vos_termine") || "[]"),
-            tk:       JSON.parse(localStorage.getItem("vos_tk") || "[]"),
-            vorrat:   JSON.parse(localStorage.getItem("vos_vorrat") || "[]"),
-            einkauf:  JSON.parse(localStorage.getItem("vos_einkauf") || "[]"),
+            tasks:      JSON.parse(localStorage.getItem("vos_tasks") || "[]"),
+            termine:    JSON.parse(localStorage.getItem("vos_termine") || "[]"),
+            tk:         JSON.parse(localStorage.getItem("vos_tk") || "[]"),
+            vorrat:     JSON.parse(localStorage.getItem("vos_vorrat") || "[]"),
+            einkauf:    JSON.parse(localStorage.getItem("vos_einkauf") || "[]"),
             wochenplan: JSON.parse(localStorage.getItem("vos_wochenplan") || "null"),
             ki_memory:  JSON.parse(localStorage.getItem("vos_ki_memory") || "{}"),
           };
-          const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "verena-os-backup.json";
-          a.click();
-          URL.revokeObjectURL(url);
+          localStorage.setItem("vos_backup_intern", JSON.stringify(data));
           localStorage.setItem("vos_last_backup", heute);
         } catch(e) {
           console.log("Auto-Backup fehlgeschlagen:", e);
         }
-      }, 3000);
+      }, 2000);
     }
   }, []);
 
@@ -466,10 +468,7 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
           Verena OS
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={doExport} style={{
-            background: "transparent", border: "1px solid " + C.border, borderRadius: 20,
-            padding: "5px 10px", color: C.muted, fontSize: 11, cursor: "pointer"
-          }}>💾 Backup</button>
+          <BackupButton doExport={doExport} doImport={doImport} />
           <ModeButton mode={mode} setMode={setMode} mc={mc} />
         </div>
       </div>
@@ -525,6 +524,70 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
 // -----------------------------------------------------------
 //  MODE BUTTON
 // -----------------------------------------------------------
+function BackupButton({ doExport, doImport }) {
+  const [open, setOpen] = useState(false);
+  const letztes = localStorage.getItem("vos_last_backup");
+  const internVorhanden = !!localStorage.getItem("vos_backup_intern");
+  const importRef = useRef();
+
+  function wiederherstellen() {
+    const intern = localStorage.getItem("vos_backup_intern");
+    if (!intern) { alert("Kein internes Backup vorhanden."); return; }
+    try {
+      const data = JSON.parse(intern);
+      if (data.tasks)      { localStorage.setItem("vos_tasks", JSON.stringify(data.tasks)); }
+      if (data.termine)    localStorage.setItem("vos_termine", JSON.stringify(data.termine));
+      if (data.tk)         localStorage.setItem("vos_tk", JSON.stringify(data.tk));
+      if (data.vorrat)     localStorage.setItem("vos_vorrat", JSON.stringify(data.vorrat));
+      if (data.wochenplan) localStorage.setItem("vos_wochenplan", JSON.stringify(data.wochenplan));
+      if (data.einkauf)    localStorage.setItem("vos_einkauf", JSON.stringify(data.einkauf));
+      if (data.ki_memory)  localStorage.setItem("vos_ki_memory", JSON.stringify(data.ki_memory));
+      alert("Wiederhergestellt vom " + (data.ts ? new Date(data.ts).toLocaleDateString("de-DE") : "?") + ". Seite wird neu geladen.");
+      window.location.reload();
+    } catch { alert("Fehler beim Wiederherstellen."); }
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button onClick={() => setOpen(o => !o)} style={{
+        background: "transparent", border: "1px solid " + C.border, borderRadius: 20,
+        padding: "5px 10px", color: C.muted, fontSize: 11, cursor: "pointer",
+        display: "flex", alignItems: "center", gap: 4
+      }}>
+        💾 {letztes === new Date().toDateString() ? "Heute" : letztes || "Backup"}
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", right: 0, top: "calc(100% + 8px)",
+          background: C.card, border: "1px solid " + C.border,
+          borderRadius: 16, overflow: "hidden", zIndex: 100, minWidth: 200,
+        }}>
+          <button onClick={() => { doExport(); setOpen(false); }} style={{
+            display: "block", width: "100%", padding: "14px 16px", background: "transparent",
+            border: "none", borderBottom: "1px solid " + C.border, color: C.text,
+            fontSize: 14, cursor: "pointer", textAlign: "left"
+          }}>💾 Backup speichern + herunterladen</button>
+          {internVorhanden && (
+            <button onClick={() => { wiederherstellen(); setOpen(false); }} style={{
+              display: "block", width: "100%", padding: "14px 16px", background: "transparent",
+              border: "none", borderBottom: "1px solid " + C.border, color: C.gold,
+              fontSize: 14, cursor: "pointer", textAlign: "left"
+            }}>↩ Letztes Backup wiederherstellen</button>
+          )}
+          <label style={{
+            display: "block", width: "100%", padding: "14px 16px", background: "transparent",
+            borderBottom: "none", color: C.muted, fontSize: 14, cursor: "pointer",
+            boxSizing: "border-box"
+          }}>
+            📂 Backup-Datei laden
+            <input ref={importRef} type="file" accept=".json" onChange={(e) => { doImport(e); setOpen(false); }} style={{ display: "none" }} />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ModeButton({ mode, setMode, mc }) {
   const [open, setOpen] = useState(false);
   const modes = ["GREEN", "YELLOW", "RED", "DARK_RED"];
