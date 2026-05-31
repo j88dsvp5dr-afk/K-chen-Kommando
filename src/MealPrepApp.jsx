@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
-// ═══════════════════════════════════════════════════════════
-//  VERENA OS — Familien-Operator
-//  Architektur: 4 Modi · KI-Herz · Zero Mental Drop
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
+//  VERENA OS -- Familien-Operator
+//  Architektur: 4 Modi - KI-Herz - Zero Mental Drop
+// -----------------------------------------------------------
 
-// ── Farben & Design ────────────────────────────────────────
+// -- Farben & Design ----------------------------------------
 const C = {
   bg:      "#0D0D0D",
   surface: "#161616",
@@ -20,13 +20,13 @@ const C = {
 };
 
 const MODE_CONFIG = {
-  GREEN:    { label: "Normal",    emoji: "🟢", color: C.sage,   sub: "Alles läuft." },
+  GREEN:    { label: "Normal",    emoji: "🟢", color: C.sage,   sub: "Alles laeuft." },
   YELLOW:   { label: "Reduziert", emoji: "🟡", color: C.gold,   sub: "Fokus auf Wichtiges." },
-  RED:      { label: "Overload",  emoji: "🔴", color: C.accent, sub: "Ich übernehme." },
-  DARK_RED: { label: "Krise",     emoji: "⚫", color: "#1a0a0a", sub: "Nur das Nötigste." },
+  RED:      { label: "Overload",  emoji: "🔴", color: C.accent, sub: "Ich uebernehme." },
+  DARK_RED: { label: "Krise",     emoji: "⚫", color: "#1a0a0a", sub: "Nur das Noetigste." },
 };
 
-// ── Storage Helper ─────────────────────────────────────────
+// -- Storage Helper -----------------------------------------
 function load(key, def) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; }
   catch { return def; }
@@ -35,7 +35,7 @@ function save(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-// ── Claude API Call ────────────────────────────────────────
+// -- Claude API Call ----------------------------------------
 async function askClaude(systemPrompt, userMessage, history = []) {
   const messages = [
     ...history.map(m => ({ role: m.role, content: m.text })),
@@ -55,11 +55,11 @@ async function askClaude(systemPrompt, userMessage, history = []) {
   return data.content?.[0]?.text || "Keine Antwort.";
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 //  MAIN APP
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export default function VerenaOS() {
-  // ── State ──────────────────────────────────────────────
+  // -- State ----------------------------------------------
   const [mode, setMode]         = useState(() => load("vos_mode", "GREEN"));
   const [tasks, setTasks]       = useState(() => load("vos_tasks", []));
   const [meal, setMeal]         = useState(() => load("vos_meal", null));
@@ -67,18 +67,18 @@ export default function VerenaOS() {
   const [screen, setScreen]     = useState("home"); // home | tasks | food | voice | memory
   const [warning, setWarning]   = useState(null);
 
-  // ── Persist ─────────────────────────────────────────────
+  // -- Persist ---------------------------------------------
   useEffect(() => save("vos_mode", mode), [mode]);
   useEffect(() => save("vos_tasks", tasks), [tasks]);
   useEffect(() => save("vos_meal", meal), [meal]);
   useEffect(() => save("vos_memory", memory), [memory]);
 
-  // ── Derived: visible tasks per mode ─────────────────────
+  // -- Derived: visible tasks per mode ---------------------
   const maxVisible = mode === "DARK_RED" ? 3 : mode === "RED" ? 3 : mode === "YELLOW" ? 4 : 5;
   const activeTasks = tasks.filter(t => !t.done).slice(0, maxVisible);
   const mc = MODE_CONFIG[mode];
 
-  // ── Add to memory ────────────────────────────────────────
+  // -- Add to memory ----------------------------------------
   const addMemory = useCallback((text) => {
     const entry = { id: Date.now(), text, ts: new Date().toLocaleString("de-DE") };
     setMemory(prev => [entry, ...prev].slice(0, 100));
@@ -96,7 +96,7 @@ export default function VerenaOS() {
       display: "flex",
       flexDirection: "column",
     }}>
-      {/* ── Status Bar ── */}
+      {/* -- Status Bar -- */}
       <div style={{
         padding: "16px 20px 0",
         display: "flex",
@@ -109,7 +109,7 @@ export default function VerenaOS() {
         <ModeButton mode={mode} setMode={setMode} mc={mc} />
       </div>
 
-      {/* ── Screen Content ── */}
+      {/* -- Screen Content -- */}
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 100px" }}>
         {screen === "home"   && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} />}
         {screen === "tasks"  && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
@@ -118,15 +118,15 @@ export default function VerenaOS() {
         {screen === "memory" && <MemoryScreen memory={memory} setMemory={setMemory} />}
       </div>
 
-      {/* ── Bottom Nav ── */}
+      {/* -- Bottom Nav -- */}
       <BottomNav screen={screen} setScreen={setScreen} />
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 //  MODE BUTTON
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 function ModeButton({ mode, setMode, mc }) {
   const [open, setOpen] = useState(false);
   const modes = ["GREEN", "YELLOW", "RED", "DARK_RED"];
@@ -189,9 +189,9 @@ function ModeButton({ mode, setMode, mc }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 //  HOME SCREEN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, warning, setWarning, addMemory, maxVisible }) {
   const isDark = mode === "DARK_RED";
 
@@ -210,7 +210,7 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
           letterSpacing: -1,
           color: isDark ? C.danger : C.text,
         }}>
-          {isDark ? "⚫ Nur das Nötigste." : mode === "RED" ? "Ich übernehme jetzt." : mode === "YELLOW" ? "Fokus." : "Wie läuft's?"}
+          {isDark ? "⚫ Nur das Noetigste." : mode === "RED" ? "Ich uebernehme jetzt." : mode === "YELLOW" ? "Fokus." : "Wie laeuft's?"}
         </h1>
       </div>
 
@@ -227,11 +227,11 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
           alignItems: "center",
         }}>
           <div style={{ fontSize: 14, color: C.accent }}>{warning}</div>
-          <button onClick={() => setWarning(null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer" }}>×</button>
+          <button onClick={() => setWarning(null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer" }}>x</button>
         </div>
       )}
 
-      {/* Focus Card — Hauptaufgabe */}
+      {/* Focus Card -- Hauptaufgabe */}
       {activeTasks.length > 0 && (
         <FocusCard task={activeTasks[0]} onDone={() => {
           setTasks(prev => prev.map((t, i) => t.id === activeTasks[0].id ? { ...t, done: true } : t));
@@ -351,7 +351,7 @@ function MealCard({ meal, setMeal, mode, addMemory }) {
 Regeln: laktosefrei, kindertauglich (Hanna 12, Timo 10), max ${mode === "GREEN" ? "30" : "20"} Minuten, einfach.
 Stresslevel heute: ${stressLevel}.
 Antworte NUR in diesem Format:
-🍽️ [Gericht]
+🍽 [Gericht]
 ⏱ [X] Min
 📝 [2-3 Zutaten, kurz]
 Sonst nichts.`,
@@ -401,7 +401,7 @@ Sonst nichts.`,
           cursor: loading ? "default" : "pointer",
           width: "100%",
         }}>
-          {loading ? "KI denkt…" : "🍽 Was essen wir heute?"}
+          {loading ? "KI denkt..." : "🍽 Was essen wir heute?"}
         </button>
       )}
     </div>
@@ -427,7 +427,7 @@ function QuickAddTask({ tasks, setTasks, addMemory }) {
         value={val}
         onChange={e => setVal(e.target.value)}
         onKeyDown={e => e.key === "Enter" && add()}
-        placeholder="Aufgabe hinzufügen…"
+        placeholder="Aufgabe hinzufuegen..."
         style={{
           flex: 1,
           background: C.surface,
@@ -468,9 +468,9 @@ function StatPill({ label, value }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 //  TASKS SCREEN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 function TasksScreen({ tasks, setTasks, mode, maxVisible, addMemory }) {
   const [tab, setTab]   = useState("open");
   const [val, setVal]   = useState("");
@@ -508,7 +508,7 @@ function TasksScreen({ tasks, setTasks, mode, maxVisible, addMemory }) {
         `Du bist Verenas Familien-Operator. Priorisiere diese Aufgabenliste. 
 Regeln: max ${maxVisible} anzeigen, Kinder/Gesundheit zuerst, Haushalt minimal, Rest ignorieren.
 Modus: ${mode}. 
-Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reihenfolge. Keine Erklärung.`,
+Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reihenfolge. Keine Erklaerung.`,
         list
       );
       // Parse und sortiere
@@ -540,7 +540,7 @@ Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reih
           fontSize: 13,
           cursor: generating ? "default" : "pointer",
         }}>
-          {generating ? "…" : "🤖 Priorisieren"}
+          {generating ? "..." : "🤖 Priorisieren"}
         </button>
       </div>
 
@@ -556,8 +556,8 @@ Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reih
           color: C.gold,
         }}>
           {mode === "DARK_RED" ? "⚫ Nur 3 Aufgaben. Alles andere verschoben." :
-           mode === "RED"      ? "🔴 Ich führe. Fokus auf das Wesentliche." :
-                                 "🟡 Reduzierter Modus — weniger ist mehr."}
+           mode === "RED"      ? "🔴 Ich fuehre. Fokus auf das Wesentliche." :
+                                 "🟡 Reduzierter Modus -- weniger ist mehr."}
         </div>
       )}
 
@@ -573,7 +573,7 @@ Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reih
           value={val}
           onChange={e => setVal(e.target.value)}
           onKeyDown={e => e.key === "Enter" && addTask()}
-          placeholder="Neue Aufgabe…"
+          placeholder="Neue Aufgabe..."
           style={{
             width: "100%",
             background: C.surface,
@@ -613,7 +613,7 @@ Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reih
             fontWeight: 700,
             cursor: "pointer",
           }}>
-            + Hinzufügen
+            + Hinzufuegen
           </button>
         </div>
       </div>
@@ -705,9 +705,9 @@ function TaskRow({ task, index, onDone, onDelete }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 //  FOOD SCREEN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 function FoodScreen({ meal, setMeal, mode, addMemory }) {
   const [loading, setLoading]   = useState(false);
   const [shopping, setShopping] = useState(() => load("vos_shopping", []));
@@ -730,7 +730,7 @@ Regeln:
 - Kein Experimentieren
 
 Antworte in diesem Format:
-🍽️ [Gericht]
+🍽 [Gericht]
 ⏱ [X] Min
 🥕 [Zutat 1], [Zutat 2], [Zutat 3]
 💡 [1 kurzer Tipp]`,
@@ -747,8 +747,8 @@ Antworte in diesem Format:
     setGenLoading(true);
     try {
       const reply = await askClaude(
-        `Erstelle eine Einkaufsliste für dieses Gericht. 
-Nur die Zutaten die man KAUFEN muss (keine Grundgewürze).
+        `Erstelle eine Einkaufsliste fuer dieses Gericht. 
+Nur die Zutaten die man KAUFEN muss (keine Grundgewuerze).
 Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
         meal
       );
@@ -784,7 +784,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
                 flex: 2, background: C.sage, border: "none", borderRadius: 12,
                 padding: "10px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer"
               }}>
-                {genLoading ? "…" : "🛒 Einkaufliste erstellen"}
+                {genLoading ? "..." : "🛒 Einkaufliste erstellen"}
               </button>
             </div>
           </>
@@ -794,7 +794,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
             border: `1px solid ${C.border}`, borderRadius: 14,
             color: loading ? C.muted : C.text, fontSize: 16, fontWeight: 600, cursor: "pointer"
           }}>
-            {loading ? "KI denkt…" : "🍽 Essen vorschlagen"}
+            {loading ? "KI denkt..." : "🍽 Essen vorschlagen"}
           </button>
         )}
       </div>
@@ -814,7 +814,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
               setShopping(prev => [...prev, { id: Date.now(), name: newItem.trim(), done: false }]);
               setNewItem("");
             }}}
-            placeholder="Artikel hinzufügen…"
+            placeholder="Artikel hinzufuegen..."
             style={{
               flex: 1, background: C.surface, border: `1px solid ${C.border}`,
               borderRadius: 12, padding: "10px 12px", color: C.text, fontSize: 14, outline: "none"
@@ -824,7 +824,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
 
         {shopping.length === 0 ? (
           <div style={{ textAlign: "center", padding: "20px 0", color: C.muted, fontSize: 14 }}>
-            Keine Artikel — oben Essen generieren!
+            Keine Artikel -- oben Essen generieren!
           </div>
         ) : (
           <>
@@ -848,7 +848,7 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
                 marginTop: 12, background: "transparent", border: `1px solid ${C.border}`,
                 borderRadius: 10, padding: "8px 14px", color: C.muted, fontSize: 13, cursor: "pointer"
               }}>
-                ✓ Erledigte löschen
+                ✓ Erledigte loeschen
               </button>
             )}
           </>
@@ -858,14 +858,14 @@ Antworte NUR mit einer Liste, ein Artikel pro Zeile, ohne Nummerierung.`,
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-//  VOICE SCREEN — KI-Kommandozentrale
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
+//  VOICE SCREEN -- KI-Kommandozentrale
+// -----------------------------------------------------------
 function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory, setWarning }) {
   const [input, setInput]       = useState("");
   const [messages, setMessages] = useState([{
     role: "assistant",
-    text: "Bereit. Sag mir was du brauchst.\n\nBeispiele:\n• „Milch leer"\n• „Heute schlimm"\n• „Was jetzt?"\n• „Lehrer anrufen"\n• „Überfordert""
+    text: "Bereit. Sag mir was du brauchst.\n\nBeispiele:\n- Milch leer\n- Heute schlimm\n- Was jetzt?\n- Lehrer anrufen\n- Ueberfordert""
   }]);
   const [loading, setLoading]   = useState(false);
   const bottomRef               = useRef();
@@ -880,17 +880,17 @@ Aufgaben offen: ${tasks.filter(t => !t.done).map(t => t.text).join(", ") || "kei
 Essen heute: ${meal?.split("\n")[0] || "noch nicht geplant"}
 
 Regeln:
-- Antworte KURZ, KLAR, FÜHREND (max 3 Sätze)
-- Keine Rückfragen wenn möglich
-- Wenn Nutzer "überfordert" oder "heute schlimm" sagt → schlage Modus-Wechsel zu RED vor
-- Wenn "was jetzt?" → nenne NUR die 1 wichtigste Aufgabe
-- Wenn Artikel leer (z.B. "Milch leer") → bestätige und merke es
+- Antworte KURZ, KLAR, FUeHREND (max 3 Saetze)
+- Keine Rueckfragen wenn moeglich
+- Wenn Nutzer "ueberfordert" oder "heute schlimm" sagt - schlage Modus-Wechsel zu RED vor
+- Wenn "was jetzt?" - nenne NUR die 1 wichtigste Aufgabe
+- Wenn Artikel leer (z.B. "Milch leer") - bestaetige und merke es
 - Kein Smalltalk
 - Deutsch
 
 Spezielle Aktionen (im Format [AKTION]):
 - [MODUS:RED] wenn du Modus wechseln empfiehlst
-- [AUFGABE:text] wenn du eine neue Aufgabe hinzufügst`;
+- [AUFGABE:text] wenn du eine neue Aufgabe hinzufuegst`;
 
   async function send(text) {
     const msg = text || input.trim();
@@ -925,7 +925,7 @@ Spezielle Aktionen (im Format [AKTION]):
     setLoading(false);
   }
 
-  const QUICK = ["Was jetzt?", "Überfordert", "Heute schlimm", "Was essen wir?"];
+  const QUICK = ["Was jetzt?", "Ueberfordert", "Heute schlimm", "Was essen wir?"];
 
   return (
     <div style={{ paddingTop: 28, display: "flex", flexDirection: "column", height: "calc(100dvh - 160px)" }}>
@@ -952,7 +952,7 @@ Spezielle Aktionen (im Format [AKTION]):
         {loading && (
           <div style={{ display: "flex" }}>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: "18px 18px 18px 4px", padding: "12px 16px", color: C.muted, fontSize: 15 }}>
-              …
+              ...
             </div>
           </div>
         )}
@@ -982,7 +982,7 @@ Spezielle Aktionen (im Format [AKTION]):
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="Sag mir was…"
+          placeholder="Sag mir was..."
           style={{
             flex: 1,
             background: C.surface,
@@ -1008,24 +1008,24 @@ Spezielle Aktionen (im Format [AKTION]):
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-//  MEMORY SCREEN — Externes Gehirn
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
+//  MEMORY SCREEN -- Externes Gehirn
+// -----------------------------------------------------------
 function MemoryScreen({ memory, setMemory }) {
   return (
     <div style={{ paddingTop: 28 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Gedächtnis</h2>
+        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900, letterSpacing: -0.8 }}>Gedaechtnis</h2>
         {memory.length > 0 && (
           <button onClick={() => setMemory([])} style={{
             background: "transparent", border: `1px solid ${C.border}`, borderRadius: 10,
             padding: "7px 12px", color: C.muted, fontSize: 13, cursor: "pointer"
-          }}>Löschen</button>
+          }}>Loeschen</button>
         )}
       </div>
 
       <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>
-        Alles was passiert ist — nichts geht verloren.
+        Alles was passiert ist -- nichts geht verloren.
       </div>
 
       {memory.length === 0 ? (
@@ -1050,9 +1050,9 @@ function MemoryScreen({ memory, setMemory }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 //  BOTTOM NAV
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 function BottomNav({ screen, setScreen }) {
   const items = [
     { id: "home",   label: "Home",     icon: "⌂" },
