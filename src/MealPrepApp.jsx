@@ -88,6 +88,98 @@ PSYCHOLOGIE:
 
 
 // ================================================================
+//  SUPABASE — Datenpersistenz
+//  Alle Daten werden in der Cloud gespeichert + localStorage Fallback
+// ================================================================
+
+const SUPABASE_URL = "https://bzxlauyqrnsyqoggndty.supabase.co";
+const SUPABASE_KEY = "sb_publishable_1RrAVzXHslo1Lx81_clrSQ_tpvd9ruH";
+
+// Eindeutige User-ID fuer diese Installation
+function getUserId() {
+  let id = localStorage.getItem("vos_user_id");
+  if (!id) {
+    id = "verena_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem("vos_user_id", id);
+  }
+  return id;
+}
+
+async function sbSave(table, dataObj) {
+  try {
+    const userId = getUserId();
+    const payload = {
+      user_id: userId,
+      table_name: table,
+      data: JSON.stringify(dataObj),
+      updated_at: new Date().toISOString(),
+    };
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/verena_data`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_KEY,
+        "Authorization": "Bearer " + SUPABASE_KEY,
+        "Prefer": "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(payload),
+    });
+    return res.ok;
+  } catch(e) {
+    console.log("Supabase save error:", e);
+    return false;
+  }
+}
+
+async function sbLoad(table) {
+  try {
+    const userId = getUserId();
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/verena_data?user_id=eq.${userId}&table_name=eq.${table}&select=data`,
+      {
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": "Bearer " + SUPABASE_KEY,
+        },
+      }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    if (rows && rows.length > 0) return JSON.parse(rows[0].data);
+    return null;
+  } catch(e) {
+    console.log("Supabase load error:", e);
+    return null;
+  }
+}
+
+async function sbSetup() {
+  // Erstelle Tabelle verena_data via Supabase SQL API
+  const sql = `
+    CREATE TABLE IF NOT EXISTS verena_data (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      table_name TEXT NOT NULL,
+      data TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, table_name)
+    );
+  `;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_KEY,
+        "Authorization": "Bearer " + SUPABASE_KEY,
+      },
+      body: JSON.stringify({ sql }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+// ================================================================
 //  KI MEMORY — Stiller Lernkern
 //  Beobachtet Verhalten, lernt Muster, niemals sichtbar fuer Nutzer
 // ================================================================
@@ -213,11 +305,13 @@ export default function VerenaOS() {
 
   // -- Persist ---------------------------------------------
   useEffect(() => save("vos_mode", mode), [mode]);
-  useEffect(() => save("vos_tasks", tasks), [tasks]);
+  useEffect(() => { save("vos_tasks", tasks); sbSave("tasks", tasks); }, [tasks]);
   useEffect(() => save("vos_meal", meal), [meal]);
   useEffect(() => save("vos_memory", memory), [memory]);
-  useEffect(() => { try { localStorage.setItem("vos_termine", JSON.stringify(termine)); } catch {} }, [termine]);
-  useEffect(() => { try { localStorage.setItem("vos_einkauf", JSON.stringify(einkauf)); } catch {} }, [einkauf]);
+  useEffect(() => { try { localStorage.setItem("vos_termine", JSON.stringify(termine)); sbSave("termine", termine); } catch {} }, [termine]);
+  useEffect(() => { try { localStorage.setItem("vos_einkauf", JSON.stringify(einkauf)); sbSave("einkauf", einkauf); } catch {} }, [einkauf]);
+  useEffect(() => { try { localStorage.setItem("vos_vorrat", JSON.stringify(vorrat)); sbSave("vorrat", vorrat); } catch {} }, [vorrat]);
+  useEffect(() => { try { localStorage.setItem("vos_tk", JSON.stringify(tk)); sbSave("tk", tk); } catch {} }, [tk]);
   useEffect(() => { try { localStorage.setItem("vos_chat", JSON.stringify(chatHistory.slice(-30))); } catch {} }, [chatHistory]);
 
   // -- Derived: visible tasks per mode ---------------------
@@ -292,6 +386,42 @@ export default function VerenaOS() {
     localStorage.setItem("vos_onboarded", "true");
     setShowOnboarding(false);
   }
+
+  // -- Cloud-Sync beim Start -----------
+  const [syncStatus, setSyncStatus] = useState(null); // null | "syncing" | "ok" | "offline"
+
+  useEffect(() => {
+    async function cloudSync() {
+      setSyncStatus("syncing");
+      try {
+        // Pruefen ob Supabase erreichbar
+        const tasksCloud = await sbLoad("tasks");
+        if (tasksCloud && tasksCloud.length > 0) {
+          // Cloud hat Daten — vergleiche mit lokal
+          const lokalTs = localStorage.getItem("vos_last_sync") || "0";
+          // Laden wenn Cloud neuer oder lokal leer
+          const lokalTasks = JSON.parse(localStorage.getItem("vos_tasks") || "[]");
+          if (lokalTasks.length === 0 && tasksCloud.length > 0) {
+            setTasks(tasksCloud);
+            localStorage.setItem("vos_tasks", JSON.stringify(tasksCloud));
+          }
+          const termineCloud = await sbLoad("termine");
+          if (termineCloud) { setTermine(termineCloud); localStorage.setItem("vos_termine", JSON.stringify(termineCloud)); }
+          const vorratCloud = await sbLoad("vorrat");
+          if (vorratCloud) { setVorrat(vorratCloud); localStorage.setItem("vos_vorrat", JSON.stringify(vorratCloud)); }
+          const tkCloud = await sbLoad("tk");
+          if (tkCloud) { setTk(tkCloud); localStorage.setItem("vos_tk", JSON.stringify(tkCloud)); }
+          const einkaufCloud = await sbLoad("einkauf");
+          if (einkaufCloud) { setEinkauf(einkaufCloud); localStorage.setItem("vos_einkauf", JSON.stringify(einkaufCloud)); }
+          localStorage.setItem("vos_last_sync", new Date().toISOString());
+        }
+        setSyncStatus("ok");
+      } catch {
+        setSyncStatus("offline");
+      }
+    }
+    cloudSync();
+  }, []);
 
   // -- App-Oeffnung beobachten -----------
   useEffect(() => {
@@ -464,8 +594,13 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
     }}>
       {/* -- Status Bar -- */}
       <div style={{ padding: "16px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: C.muted, textTransform: "uppercase" }}>
-          Verena OS
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: C.muted, textTransform: "uppercase" }}>
+            Verena OS
+          </div>
+          {syncStatus === "syncing" && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold }} />}
+          {syncStatus === "ok" && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.sage }} />}
+          {syncStatus === "offline" && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.muted }} />}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <BackupButton doExport={doExport} doImport={doImport} />
