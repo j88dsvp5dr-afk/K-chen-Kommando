@@ -723,7 +723,6 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
         {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
         {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} vorrat={vorrat} setVorrat={setVorrat} tk={tk} setTk={setTk} />}
         {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} />}
-        {screen === "kinder"  && <KinderScreen addMemory={addMemory} setWarning={setWarning} termine={termine} setTermine={setTermine} setScreen={setScreen} />}
         {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
       </div>
 
@@ -2700,7 +2699,7 @@ function BottomNav({ screen, setScreen }) {
     { id: "tasks",   label: "Aufgaben",icon: "✓" },
     { id: "kueche",  label: "Kueche",  icon: "🧊" },
     { id: "voice",   label: "KI",      icon: "◎" },
-    { id: "kinder",  label: "Kinder",  icon: "👧" },
+    { id: "termine", label: "Termine", icon: "📅" },
   ];
 
   return (
