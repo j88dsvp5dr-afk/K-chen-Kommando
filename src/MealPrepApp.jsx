@@ -1,21 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
-class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: 20, color: "#E8552A", fontFamily: "sans-serif", background: "#080808", minHeight: "100dvh" }}>
-          <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 12 }}>Fehler</div>
-          <div style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>{this.state.error?.message}</div>
-          <button onClick={() => window.location.reload()} style={{ background: "#E8552A", border: "none", borderRadius: 12, padding: "12px 20px", color: "#fff", fontWeight: 700, cursor: "pointer" }}>Neu laden</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 
 
@@ -326,8 +310,6 @@ const VERENA_VORLAGEN = {
 };
 
 
-export default function VerenaOS() { return <ErrorBoundary><VerenaOSInner /></ErrorBoundary>; }
-
 // ── Einmaliger Daten-Import aus Verenas Kalender-Export ──
 const KALENDER_IMPORT = {
   termine: [
@@ -386,7 +368,7 @@ const KALENDER_IMPORT = {
   ]
 };
 
-function VerenaOSInner() {
+export default function VerenaOS() {
   // -- State ----------------------------------------------
   const [mode, setMode]         = useState(() => load("vos_mode", "GREEN"));
   const [tasks, setTasks]       = useState(() => load("vos_tasks", []));
