@@ -2116,7 +2116,8 @@ WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
 
       const newMsg = { role: "assistant", text: cleanReply };
       setMessages(prev => { const updated = [...prev, newMsg]; setChatHistory(updated); return updated; });
-      vorlesen(cleanReply);
+      if (sprachEingabeAktiv.current) { vorlesen(cleanReply); }
+      sprachEingabeAktiv.current = false;
     } catch {
       setMessages(prev => { const updated = [...prev, { role: "assistant", text: "Verbindungsfehler." }]; setChatHistory(updated); return updated; });
     }
@@ -2235,6 +2236,7 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
   // -- Spracherkennung --
   const [hoert, setHoert] = useState(false);
   const recognitionRef = useRef(null);
+  const sprachEingabeAktiv = useRef(false);
 
   function startSprache() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2252,6 +2254,7 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
     recognition.onerror = () => setHoert(false);
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
+      sprachEingabeAktiv.current = true;
       setInput(transcript);
       setTimeout(() => send(transcript), 100);
     };
