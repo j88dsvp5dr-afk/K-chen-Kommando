@@ -976,18 +976,19 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
   const WANN_ORDER = { "heute": 0, "diese-woche": 1, "diesen-monat": 2, "irgendwann": 3 };
   const KAT_ORDER = { "kinder": 0, "behoerde": 1, "arbeit": 2, "haushalt": 3, "sonstiges": 4 };
   const PRIO_ORDER = { "p1": 0, "p2": 1, "p3": 2 };
-  const offeneAufgaben = tasks.filter(t => !t.done).sort((a, b) => {
-    // P1 vor P2 vor P3
+  const allOffene = tasks.filter(t => !t.done).sort((a, b) => {
     const pA = PRIO_ORDER[a.prio || "p3"];
     const pB = PRIO_ORDER[b.prio || "p3"];
     if (pA !== pB) return pA - pB;
-    // Dann nach Wann
     const wA = WANN_ORDER[a.wann || "irgendwann"];
     const wB = WANN_ORDER[b.wann || "irgendwann"];
     if (wA !== wB) return wA - wB;
-    // Dann nach Kategorie
     return (KAT_ORDER[a.kategorie || "sonstiges"]) - (KAT_ORDER[b.kategorie || "sonstiges"]);
   });
+  // Im Stress-Modus: nur die absolut wichtigsten
+  const stressLimit = mode === "DARK_RED" ? 3 : mode === "RED" ? 3 : null;
+  const offeneAufgaben = stressLimit ? allOffene.slice(0, stressLimit) : allOffene;
+  const versteckteAufgaben = stressLimit ? allOffene.length - stressLimit : 0;
   const isDark = mode === "DARK_RED";
 
   return (
@@ -1086,8 +1087,38 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
       {/* Meal Card */}
       <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
 
-      {/* Aufgaben-Block */}
-      {mode !== "DARK_RED" && (
+      {/* RED/DARK_RED Mode — KI zeigt nur das Wichtigste */}
+      {(mode === "RED" || mode === "DARK_RED") && (
+        <div style={{ background: C.card, border: "1px solid " + (mode === "DARK_RED" ? C.danger : C.accent) + "40", borderRadius: GS.radius, padding: 18, marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: mode === "DARK_RED" ? C.danger : C.accent, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700, marginBottom: 12 }}>
+            {mode === "DARK_RED" ? "Nur das Überlebensnotwendige" : "Ich übernehme — nur das Wichtigste"}
+          </div>
+          {offeneAufgaben.map((t, i) => {
+            const prio = PRIO[t.prio || "p3"];
+            return (
+              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: i < offeneAufgaben.length-1 ? "1px solid " + C.border : "none" }}>
+                <button onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? {...x, done: true, doneAt: Date.now()} : x)); addMemory("✓ " + t.text); beobachte("aufgabe_erledigt", {kategorie: t.kategorie}); }} style={{
+                  width: 28, height: 28, borderRadius: 9, border: "2px solid " + prio.color,
+                  background: "transparent", cursor: "pointer", flexShrink: 0,
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700 }}>{t.text}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t.kategorie}</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 800, color: prio.color, background: prio.bg, padding: "2px 8px", borderRadius: 6 }}>{prio.label}</span>
+              </div>
+            );
+          })}
+          {versteckteAufgaben > 0 && (
+            <div style={{ textAlign: "center", paddingTop: 12, fontSize: 13, color: C.muted }}>
+              {versteckteAufgaben} weitere Aufgaben warten — erst diese erledigen.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Aufgaben-Block (Normal + Yellow Mode) */}
+      {mode !== "DARK_RED" && mode !== "RED" && (
         <div style={{ marginBottom: 16 }}>
           {/* Header mit Anzahl und Aufklapp-Button */}
           {/* KI Auto-Priorisierung */}
