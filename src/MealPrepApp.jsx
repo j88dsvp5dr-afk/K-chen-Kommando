@@ -1034,8 +1034,7 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
         {meal ? (
           <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 18, marginBottom: 16 }}>
             <div style={{ fontSize: 12, color: C.muted, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Heute Essen</div>
-            <div style={{ fontSize: 16, lineHeight: 1.6, whiteSpace: "pre-line" }}>{meal.split("
-")[0]}</div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, whiteSpace: "pre-line" }}>{meal.split("\n")[0]}</div>
           </div>
         ) : (
           <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
