@@ -1473,7 +1473,21 @@ function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory,
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const heute = new Date();
+  const heuteDatum = heute.toISOString().split("T")[0];
+  const wochentage = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+  const wochentag = wochentage[heute.getDay()];
+
+  function datumBerechnen(beschreibung) {
+    // Hilfsfunktion um relative Datumsangaben aufzuloesen
+    const h = new Date();
+    if (beschreibung.includes("morgen")) { h.setDate(h.getDate()+1); return h.toISOString().split("T")[0]; }
+    if (beschreibung.includes("uebermorgen")) { h.setDate(h.getDate()+2); return h.toISOString().split("T")[0]; }
+    return heuteDatum;
+  }
+
   const SYSTEM = `Du bist Verenas Familien-Operator. Aktueller Modus: ${mode}.
+Heutiges Datum: ${heuteDatum} (${wochentag})
 
 Aufgaben offen: ${tasks.filter(t => !t.done).map(t => t.text).join(", ") || "keine"}
 Essen heute: ${meal?.split("\n")[0] || "noch nicht geplant"}
@@ -1483,17 +1497,26 @@ Regeln:
 - Keine Rueckfragen wenn moeglich
 - Wenn Nutzer "ueberfordert" oder "heute schlimm" sagt - schlage Modus-Wechsel zu RED vor
 - Wenn "was jetzt?" - nenne NUR die 1 wichtigste Aufgabe
-- Wenn Artikel leer (z.B. "Milch leer") - bestaetige und merke es
+- Wenn Artikel leer (z.B. "Milch leer") - bestaetige und lege Einkaufsartikel an
 - Kein Smalltalk
 - Deutsch
 
-Spezielle Aktionen (im Format [AKTION]):
+WICHTIG bei Terminen: Berechne das Datum IMMER relativ zu heute (${heuteDatum}).
+Beispiele:
+- "naechsten Dienstag" = naechster Dienstag nach ${heuteDatum}
+- "am 5. Juni" = 2026-06-05
+- "in zwei Wochen" = ${new Date(heute.getTime() + 14*86400000).toISOString().split("T")[0]}
+- "morgen" = ${new Date(heute.getTime() + 86400000).toISOString().split("T")[0]}
+
+Spezielle Aktionen (im Format [AKTION]) - IMMER einfuegen wenn relevant:
 - [MODUS:RED] wenn du Modus wechseln empfiehlst
 - [AUFGABE:text] wenn du eine neue Aufgabe hinzufuegst
-- [TERMIN:titel|datum|uhrzeit] wenn ein Termin erwaehnt wird (datum als YYYY-MM-DD, uhrzeit als HH:MM oder leer)
-  Beispiel: [TERMIN:Arzt Timo|2024-06-05|10:00]
-- [EINKAUF:artikel] wenn etwas fehlt oder gekauft werden soll
-  Beispiel: Nutzer sagt "Milch leer" -> [EINKAUF:Milch] oder "kauf Butter" -> [EINKAUF:Butter]`;
+- [TERMIN:titel|datum|uhrzeit] IMMER wenn ein Datum/Termin erwaehnt wird
+  datum MUSS als YYYY-MM-DD Format sein, uhrzeit als HH:MM oder leer lassen
+  Beispiel: "Arzt Timo am 5. Juni um 10 Uhr" -> [TERMIN:Arzt Timo|2026-06-05|10:00]
+  Beispiel: "Elternabend naechste Woche" -> [TERMIN:Elternabend|${new Date(heute.getTime() + 7*86400000).toISOString().split("T")[0]}|]
+- [EINKAUF:artikel] IMMER wenn etwas fehlt oder gekauft werden soll
+  Beispiel: "Milch leer" -> [EINKAUF:Milch]`;
 
   async function send(text) {
     const msg = text || input.trim();
@@ -1522,7 +1545,7 @@ Spezielle Aktionen (im Format [AKTION]):
       }
 
       // Termin-Erkennung
-      const terminMatch = reply.match(/\[TERMIN:([^|]+)\|([^|]*)\|([^\]]*)\]/);
+      const terminMatch = reply.match(/\[TERMIN:\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*([^\]]*?)\s*\]/);
       if (terminMatch) {
         const [, titel, datum, uhrzeit] = terminMatch;
         const neuerTermin = {
@@ -1541,7 +1564,7 @@ Spezielle Aktionen (im Format [AKTION]):
       }
 
       // Einkauf-Erkennung (z.B. "Milch leer", "kauf Butter")
-      const einkaufMatch = reply.match(/\[EINKAUF:([^\]]+)\]/);
+      const einkaufMatch = reply.match(/\[EINKAUF:\s*([^\]]+?)\s*\]/);
       if (einkaufMatch && setEinkauf) {
         const artikel = einkaufMatch[1].trim();
         setEinkauf(prev => [...prev, { id: Date.now() + 2, name: artikel, done: false }]);
