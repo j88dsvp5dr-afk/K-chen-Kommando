@@ -1082,6 +1082,10 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
       {mode !== "DARK_RED" && (
         <div style={{ marginBottom: 16 }}>
           {/* Header mit Anzahl und Aufklapp-Button */}
+          {/* KI Auto-Priorisierung */}
+          {offeneAufgaben.length > 0 && aufgabenOffen && (
+            <AutoPrioButton tasks={tasks} setTasks={setTasks} addMemory={addMemory} />
+          )}
           <button onClick={() => setAufgabenOffen(o => !o)} style={{
             width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
             background: "transparent", border: "none", cursor: "pointer", padding: "4px 0 10px",
@@ -1399,6 +1403,57 @@ function QuickAddTask({ tasks, setTasks, addMemory }) {
         cursor: "pointer",
       }}>+</button>
     </div>
+  );
+}
+
+function AutoPrioButton({ tasks, setTasks, addMemory }) {
+  const [loading, setLoading] = useState(false);
+
+  async function autoPriorisieren() {
+    const offen = tasks.filter(t => !t.done);
+    if (offen.length === 0) return;
+    setLoading(true);
+    try {
+      const liste = offen.map((t, i) => `${i+1}. [${t.wann||"irgendwann"}][${t.kategorie||"sonstiges"}] ${t.text}`).join("\n");
+      const reply = await askClaude(
+        `Du bist Verenas Familien-Operator. Priorisiere diese Aufgabenliste mit P1/P2/P3.
+
+P1 = sofort/dringend (Gesundheit, Fristen, Geld, Kinder-Dringliches)
+P2 = diese Woche wichtig (Behörden, Schule, wichtige Erledigungen)
+P3 = irgendwann/niedrig (Haushalt, langfristig, nice-to-have)
+
+Antworte NUR als JSON-Array:
+[{"nr":1,"prio":"p1"},{"nr":2,"prio":"p2"},...]
+Keine Erklaerung, nur JSON.`,
+        liste
+      );
+      const clean = reply.replace(/```json|```/g, "").trim();
+      const prioMap = JSON.parse(clean);
+      setTasks(prev => {
+        const updated = [...prev];
+        prioMap.forEach(item => {
+          const aufgabe = offen[item.nr - 1];
+          if (aufgabe) {
+            const idx = updated.findIndex(t => t.id === aufgabe.id);
+            if (idx !== -1) updated[idx] = { ...updated[idx], prio: item.prio };
+          }
+        });
+        return updated;
+      });
+      addMemory("KI hat " + offen.length + " Aufgaben priorisiert");
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  }
+
+  return (
+    <button onClick={autoPriorisieren} disabled={loading} style={{
+      background: "transparent", border: "1px solid " + C.gold + "60",
+      borderRadius: 20, padding: "5px 12px", color: loading ? C.muted : C.gold,
+      fontSize: 12, fontWeight: 600, cursor: loading ? "default" : "pointer",
+      flexShrink: 0,
+    }}>
+      {loading ? "..." : "🤖 Auto-P1/P2/P3"}
+    </button>
   );
 }
 
