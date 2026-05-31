@@ -1123,9 +1123,18 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
                   }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, fontWeight: i === 0 ? 600 : 400 }}>{t.text}</div>
-                    {t.wann && <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t.wann}</div>}
+                    <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+                      {["heute","diese-woche","diesen-monat","irgendwann"].map(w => (
+                        <button key={w} onClick={() => setTasks(prev => prev.map(x => x.id === t.id ? {...x, wann: w} : x))} style={{
+                          padding: "2px 8px", borderRadius: 10, fontSize: 10, cursor: "pointer",
+                          border: "1px solid " + (t.wann === w ? C.accent : C.border),
+                          background: t.wann === w ? C.accent + "30" : "transparent",
+                          color: t.wann === w ? C.accent : C.muted, fontWeight: t.wann === w ? 700 : 400,
+                        }}>{w === "diese-woche" ? "Woche" : w === "diesen-monat" ? "Monat" : w === "irgendwann" ? "Später" : "Heute"}</button>
+                      ))}
+                    </div>
                   </div>
-                  <button onClick={() => setTasks(prev => prev.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>x</button>
+                  <button onClick={() => setTasks(prev => prev.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", flexShrink: 0 }}>x</button>
                 </div>
               ))}
 
