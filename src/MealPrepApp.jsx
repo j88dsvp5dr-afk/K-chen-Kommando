@@ -343,7 +343,11 @@ export default function VerenaOS() {
   const [screen, setScreen]     = useState("home");
   const [warning, setWarning]   = useState(null);
   const [showOnboarding, setShowOnboarding] = useState(() => {
-    return localStorage.getItem("vos_onboarded") !== "true";
+    // Nur anzeigen wenn noch nie ongeboardet UND keine Daten vorhanden
+    const onboarded = localStorage.getItem("vos_onboarded") === "true";
+    const hasTasks = JSON.parse(localStorage.getItem("vos_tasks") || "[]").length > 0;
+    const hasTermine = JSON.parse(localStorage.getItem("vos_termine") || "[]").length > 0;
+    return !onboarded && !hasTasks && !hasTermine;
   });
 
   // -- Persist ---------------------------------------------
