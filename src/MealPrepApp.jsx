@@ -2231,42 +2231,6 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
     }
   }
 
-  // -- Sprachausgabe --
-  const [sprichtGerade, setSprichtGerade] = useState(false);
-  const [sprachAusgabeAn, setSprachAusgabeAn] = useState(() => {
-    return localStorage.getItem("vos_sprache_an") !== "false";
-  });
-
-  function vorlesen(text) {
-    if (!sprachAusgabeAn) return;
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    // Aktionen entfernen
-    const sauber = text.replace(/\[.*?\]/g, "").replace(/[\n]+/g, ". ").trim();
-    const utterance = new SpeechSynthesisUtterance(sauber);
-    utterance.lang = "de-DE";
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    // Deutsche Stimme bevorzugen
-    const stimmen = window.speechSynthesis.getVoices();
-    const deutsch = stimmen.find(s => s.lang === "de-DE") || stimmen.find(s => s.lang.startsWith("de"));
-    if (deutsch) utterance.voice = deutsch;
-    utterance.onstart = () => setSprichtGerade(true);
-    utterance.onend = () => setSprichtGerade(false);
-    utterance.onerror = () => setSprichtGerade(false);
-    window.speechSynthesis.speak(utterance);
-  }
-
-  function spracheStoppen() {
-    window.speechSynthesis.cancel();
-    setSprichtGerade(false);
-  }
-
-  function toggleSprachausgabe() {
-    const neu = !sprachAusgabeAn;
-    setSprachAusgabeAn(neu);
-    localStorage.setItem("vos_sprache_an", neu ? "true" : "false");
-  }
 
   return (
     <div style={{ paddingTop: 28, display: "flex", flexDirection: "column", height: "calc(100dvh - 160px)" }}>
