@@ -990,6 +990,75 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
   const offeneAufgaben = stressLimit ? allOffene.slice(0, stressLimit) : allOffene;
   const versteckteAufgaben = stressLimit ? allOffene.length - stressLimit : 0;
   const isDark = mode === "DARK_RED";
+  const isStress = mode === "RED" || mode === "DARK_RED";
+
+  // STRESS MODE — ultra einfach, keine Ablenkung
+  if (isStress) {
+    const topAufgabe = offeneAufgaben[0];
+    return (
+      <div style={{ paddingTop: 28 }}>
+        {/* Klare Botschaft */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>
+            {new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}
+          </div>
+          <h1 style={{ fontSize: 34, fontWeight: 900, lineHeight: 1.05, margin: 0, letterSpacing: -1.5, color: isDark ? C.danger : C.accent }}>
+            {isDark ? "Nur das Nötigste." : "Ich übernehme."}
+          </h1>
+          <div style={{ fontSize: 15, color: C.muted, marginTop: 6 }}>
+            {isDark ? "Kinder versorgen. Essen. Eine Sache." : "Eine Aufgabe. Dann die nächste."}
+          </div>
+        </div>
+
+        {/* 1 Aufgabe */}
+        {topAufgabe && (
+          <div style={{ background: C.card, border: "1px solid " + C.accent + "50", borderRadius: GS.radius, padding: 20, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: C.accent, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 10 }}>
+              Jetzt — nur das
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.3, marginBottom: 20, color: C.text }}>
+              {topAufgabe.text}
+            </div>
+            <button onClick={() => {
+              setTasks(prev => prev.map(x => x.id === topAufgabe.id ? {...x, done: true, doneAt: Date.now()} : x));
+              addMemory("✓ " + topAufgabe.text);
+              beobachte("aufgabe_erledigt", {kategorie: topAufgabe.kategorie});
+            }} style={{
+              width: "100%", padding: "17px", background: C.accent, border: "none",
+              borderRadius: GS.radius, color: "#fff", fontWeight: 800, fontSize: 18, cursor: "pointer",
+            }}>✓ Erledigt</button>
+          </div>
+        )}
+
+        {/* Essen */}
+        {meal ? (
+          <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 18, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: C.muted, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Heute Essen</div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, whiteSpace: "pre-line" }}>{meal.split("
+")[0]}</div>
+          </div>
+        ) : (
+          <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
+        )}
+
+        {/* Wartende Aufgaben — minimal */}
+        {versteckteAufgaben > 0 && (
+          <div style={{ textAlign: "center", padding: "16px 0", fontSize: 13, color: C.muted }}>
+            {versteckteAufgaben + 1} weitere warten — erst diese eine erledigen.
+          </div>
+        )}
+
+        {/* Modus wechseln */}
+        <button onClick={() => { setMode("GREEN"); beobachte("modus_rot"); }} style={{
+          width: "100%", marginTop: 8, padding: "13px", background: "transparent",
+          border: "1px solid " + C.border, borderRadius: GS.radius,
+          color: C.muted, fontSize: 14, cursor: "pointer",
+        }}>
+          Zurück zu Normal
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ paddingTop: 28 }}>
@@ -1087,35 +1156,7 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
       {/* Meal Card */}
       <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
 
-      {/* RED/DARK_RED Mode — KI zeigt nur das Wichtigste */}
-      {(mode === "RED" || mode === "DARK_RED") && (
-        <div style={{ background: C.card, border: "1px solid " + (mode === "DARK_RED" ? C.danger : C.accent) + "40", borderRadius: GS.radius, padding: 18, marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: mode === "DARK_RED" ? C.danger : C.accent, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700, marginBottom: 12 }}>
-            {mode === "DARK_RED" ? "Nur das Überlebensnotwendige" : "Ich übernehme — nur das Wichtigste"}
-          </div>
-          {offeneAufgaben.map((t, i) => {
-            const prio = PRIO[t.prio || "p3"];
-            return (
-              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: i < offeneAufgaben.length-1 ? "1px solid " + C.border : "none" }}>
-                <button onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? {...x, done: true, doneAt: Date.now()} : x)); addMemory("✓ " + t.text); beobachte("aufgabe_erledigt", {kategorie: t.kategorie}); }} style={{
-                  width: 28, height: 28, borderRadius: 9, border: "2px solid " + prio.color,
-                  background: "transparent", cursor: "pointer", flexShrink: 0,
-                }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700 }}>{t.text}</div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t.kategorie}</div>
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 800, color: prio.color, background: prio.bg, padding: "2px 8px", borderRadius: 6 }}>{prio.label}</span>
-              </div>
-            );
-          })}
-          {versteckteAufgaben > 0 && (
-            <div style={{ textAlign: "center", paddingTop: 12, fontSize: 13, color: C.muted }}>
-              {versteckteAufgaben} weitere Aufgaben warten — erst diese erledigen.
-            </div>
-          )}
-        </div>
-      )}
+
 
       {/* Aufgaben-Block (Normal + Yellow Mode) */}
       {mode !== "DARK_RED" && mode !== "RED" && (
