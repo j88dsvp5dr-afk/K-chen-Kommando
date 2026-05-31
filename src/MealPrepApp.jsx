@@ -616,22 +616,50 @@ function StatPill({ label, value }) {
 //  TASKS SCREEN
 // -----------------------------------------------------------
 function TasksScreen({ tasks, setTasks, mode, maxVisible, addMemory }) {
-  const [tab, setTab]   = useState("open");
-  const [val, setVal]   = useState("");
-  const [note, setNote] = useState("");
-  const [prio, setPrio] = useState("normal");
+  const [tab, setTab]       = useState("open");
+  const [val, setVal]       = useState("");
+  const [wann, setWann]     = useState("diese-woche");
+  const [kategorie, setKat] = useState("sonstiges");
   const [generating, setGenerating] = useState(false);
 
-  const open = tasks.filter(t => !t.done);
+  const WANN = [
+    { id: "heute",        label: "Heute",        color: C.accent },
+    { id: "diese-woche",  label: "Diese Woche",  color: C.gold },
+    { id: "diesen-monat", label: "Diesen Monat", color: C.sage },
+    { id: "irgendwann",   label: "Irgendwann",   color: C.muted },
+  ];
+  const KATEGORIEN = [
+    { id: "kinder",   label: "Kinder",   icon: "👧" },
+    { id: "behoerde", label: "Behoerde", icon: "📋" },
+    { id: "haushalt", label: "Haushalt", icon: "🏠" },
+    { id: "arbeit",   label: "Arbeit",   icon: "💼" },
+    { id: "sonstiges",label: "Sonstiges",icon: "•"  },
+  ];
+
+  // Sortierung: Heute+Kinder zuerst, Irgendwann+Haushalt zuletzt
+  const WANN_ORDER = { "heute": 0, "diese-woche": 1, "diesen-monat": 2, "irgendwann": 3 };
+  const KAT_ORDER  = { "kinder": 0, "behoerde": 1, "arbeit": 2, "haushalt": 3, "sonstiges": 4 };
+
+  const open = tasks.filter(t => !t.done).sort((a, b) => {
+    const wA = WANN_ORDER[a.wann || "irgendwann"];
+    const wB = WANN_ORDER[b.wann || "irgendwann"];
+    if (wA !== wB) return wA - wB;
+    return (KAT_ORDER[a.kategorie || "sonstiges"]) - (KAT_ORDER[b.kategorie || "sonstiges"]);
+  });
   const done = tasks.filter(t => t.done);
   const hidden = open.length - maxVisible;
 
   function addTask() {
     if (!val.trim()) return;
-    const t = { id: Date.now(), text: val.trim(), note: note.trim(), priority: prio, done: false, createdAt: Date.now() };
+    const t = {
+      id: Date.now(), text: val.trim(),
+      wann, kategorie,
+      priority: wann === "heute" ? "high" : "normal",
+      done: false, createdAt: Date.now()
+    };
     setTasks(prev => [...prev, t]);
-    addMemory(`+ ${val.trim()}`);
-    setVal(""); setNote(""); setPrio("normal");
+    addMemory("+ " + val.trim() + " (" + wann + ")");
+    setVal("");
   }
 
   function doneTask(id, text) {
@@ -647,12 +675,16 @@ function TasksScreen({ tasks, setTasks, mode, maxVisible, addMemory }) {
     if (open.length === 0) return;
     setGenerating(true);
     try {
-      const list = open.map((t, i) => `${i + 1}. ${t.text}`).join("\n");
+      const list = open.map((t, i) => `${i + 1}. [${t.wann || "irgendwann"}][${t.kategorie || "sonstiges"}] ${t.text}`).join("\n");
       const reply = await askClaude(
-        `Du bist Verenas Familien-Operator. Priorisiere diese Aufgabenliste. 
-Regeln: max ${maxVisible} anzeigen, Kinder/Gesundheit zuerst, Haushalt minimal, Rest ignorieren.
-Modus: ${mode}. 
-Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reihenfolge. Keine Erklaerung.`,
+        `Du bist Verenas Familien-Operator. Priorisiere diese Aufgabenliste.
+Regeln: 
+- heute+kinder = hoechste Prioritaet
+- behoerde vor haushalt
+- irgendwann+haushalt = niedrigste
+- max ${maxVisible} zurueckgeben
+- Modus: ${mode}
+Antworte NUR mit nummerierten Zeilennummern der Aufgaben in Prioritaetsreihenfolge. Nur Zahlen.`,
         list
       );
       // Parse und sortiere
@@ -706,60 +738,44 @@ Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reih
       )}
 
       {/* Add Task */}
-      <div style={{
-        background: C.card,
-        border: `1px solid ${C.border}`,
-        borderRadius: 18,
-        padding: "16px",
-        marginBottom: 20,
-      }}>
-        <input
-          value={val}
-          onChange={e => setVal(e.target.value)}
+      <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: 18, padding: "16px", marginBottom: 20 }}>
+        <input value={val} onChange={e => setVal(e.target.value)}
           onKeyDown={e => e.key === "Enter" && addTask()}
-          placeholder="Neue Aufgabe..."
-          style={{
-            width: "100%",
-            background: C.surface,
-            border: `1px solid ${C.border}`,
-            borderRadius: 12,
-            padding: "12px",
-            color: C.text,
-            fontSize: 15,
-            outline: "none",
-            boxSizing: "border-box",
-            marginBottom: 8,
-          }}
-        />
-        <div style={{ display: "flex", gap: 8 }}>
-          {["normal", "high"].map(p => (
-            <button key={p} onClick={() => setPrio(p)} style={{
-              flex: 1,
-              padding: "8px",
-              borderRadius: 10,
-              border: `1px solid ${prio === p ? C.accent : C.border}`,
-              background: prio === p ? `${C.accent}20` : "transparent",
-              color: prio === p ? C.accent : C.muted,
-              fontSize: 13,
-              cursor: "pointer",
-            }}>
-              {p === "high" ? "! Wichtig" : "Normal"}
-            </button>
+          placeholder="Was muss erledigt werden?"
+          style={{ width: "100%", background: C.surface, border: "1px solid " + C.border, borderRadius: 12, padding: "12px", color: C.text, fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
+
+        {/* Wann */}
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" }}>Wann?</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+          {WANN.map(w => (
+            <button key={w.id} onClick={() => setWann(w.id)} style={{
+              padding: "7px 12px", borderRadius: 20,
+              border: "1px solid " + (wann === w.id ? w.color : C.border),
+              background: wann === w.id ? w.color + "25" : "transparent",
+              color: wann === w.id ? w.color : C.muted,
+              fontSize: 13, fontWeight: wann === w.id ? 700 : 400, cursor: "pointer"
+            }}>{w.label}</button>
           ))}
-          <button onClick={addTask} style={{
-            flex: 2,
-            padding: "8px 14px",
-            borderRadius: 10,
-            background: C.accent,
-            border: "none",
-            color: "#fff",
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}>
-            + Hinzufuegen
-          </button>
         </div>
+
+        {/* Kategorie */}
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" }}>Was ist es?</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+          {KATEGORIEN.map(k => (
+            <button key={k.id} onClick={() => setKat(k.id)} style={{
+              padding: "7px 12px", borderRadius: 20,
+              border: "1px solid " + (kategorie === k.id ? C.text : C.border),
+              background: kategorie === k.id ? C.border : "transparent",
+              color: kategorie === k.id ? C.text : C.muted,
+              fontSize: 13, cursor: "pointer"
+            }}>{k.icon} {k.label}</button>
+          ))}
+        </div>
+
+        <button onClick={addTask} disabled={!val.trim()} style={{
+          width: "100%", padding: "13px", background: val.trim() ? C.accent : C.border,
+          border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, fontSize: 15, cursor: val.trim() ? "pointer" : "default"
+        }}>+ Hinzufuegen</button>
       </div>
 
       {/* Tabs */}
@@ -819,32 +835,42 @@ Antworte NUR mit einer nummerierten Liste der TOP ${maxVisible} Aufgaben in Reih
 
 function TaskRow({ task, index, onDone, onDelete }) {
   const isFirst = index === 0;
+  const WANN_COLOR = { "heute": C.accent, "diese-woche": C.gold, "diesen-monat": C.sage, "irgendwann": C.muted };
+  const WANN_LABEL = { "heute": "Heute", "diese-woche": "Diese Woche", "diesen-monat": "Diesen Monat", "irgendwann": "Irgendwann" };
+  const KAT_ICON   = { "kinder": "👧", "behoerde": "📋", "haushalt": "🏠", "arbeit": "💼", "sonstiges": "•" };
+  const wannColor = WANN_COLOR[task.wann] || C.muted;
+
   return (
     <div style={{
       background: isFirst ? C.card : "transparent",
-      border: `1px solid ${isFirst ? C.accent + "40" : C.border}`,
+      border: "1px solid " + (isFirst ? C.accent + "40" : C.border),
       borderRadius: isFirst ? 18 : 12,
-      padding: isFirst ? "16px" : "12px",
+      padding: isFirst ? "16px" : "10px 12px",
       marginBottom: 8,
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
+      display: "flex", alignItems: "center", gap: 12,
     }}>
       <button onClick={onDone} style={{
-        width: isFirst ? 28 : 22,
-        height: isFirst ? 28 : 22,
+        width: isFirst ? 28 : 22, height: isFirst ? 28 : 22,
         borderRadius: isFirst ? 10 : 8,
-        border: `2px solid ${isFirst ? C.accent : C.border}`,
-        background: "transparent",
-        cursor: "pointer",
-        flexShrink: 0,
+        border: "2px solid " + (isFirst ? C.accent : C.border),
+        background: "transparent", cursor: "pointer", flexShrink: 0,
       }} />
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: isFirst ? 16 : 14, fontWeight: isFirst ? 600 : 400 }}>{task.text}</div>
-        {task.note && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{task.note}</div>}
+        <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
+          {task.wann && (
+            <span style={{ fontSize: 10, color: wannColor, fontWeight: 700, letterSpacing: 0.3 }}>
+              {WANN_LABEL[task.wann] || task.wann}
+            </span>
+          )}
+          {task.kategorie && task.kategorie !== "sonstiges" && (
+            <span style={{ fontSize: 11, color: C.muted }}>
+              {KAT_ICON[task.kategorie]} {task.kategorie}
+            </span>
+          )}
+        </div>
       </div>
-      {task.priority === "high" && <div style={{ color: C.accent, fontWeight: 900, fontSize: 16 }}>!</div>}
-      <button onClick={onDelete} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>✕</button>
+      <button onClick={onDelete} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>x</button>
     </div>
   );
 }
