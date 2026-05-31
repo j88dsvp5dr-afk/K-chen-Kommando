@@ -115,6 +115,44 @@ export default function VerenaOS() {
     return entry;
   }, []);
 
+  // -- Wiederkehrende Aufgaben automatisch erstellen -----------
+  useEffect(() => {
+    const heute = new Date();
+    const wochentag = ["so","mo","di","mi","do","fr","sa"][heute.getDay()];
+    const tagDesMonats = heute.getDate();
+    const today = heute.toDateString();
+
+    setTasks(prev => {
+      const updated = [...prev];
+      // Für jede wiederkehrende Aufgabe prüfen ob heute fällig
+      prev.forEach(t => {
+        if (!t.wiederholung || t.wiederholung === "einmalig") return;
+        if (t.lastCreated === today) return; // Heute schon erstellt
+
+        let faellig = false;
+        if (t.wiederholung === "taeglich") faellig = true;
+        if (t.wiederholung === wochentag) faellig = true;
+        if (t.wiederholung === "monatlich" && tagDesMonats === new Date(t.createdAt).getDate()) faellig = true;
+
+        if (faellig) {
+          // Neue Instanz erstellen
+          updated.push({
+            ...t,
+            id: Date.now() + Math.random(),
+            done: false,
+            createdAt: Date.now(),
+            lastCreated: today,
+            autoAdded: true,
+          });
+          // lastCreated auf Original aktualisieren
+          const idx = updated.findIndex(x => x.id === t.id);
+          if (idx !== -1) updated[idx] = { ...updated[idx], lastCreated: today };
+        }
+      });
+      return updated;
+    });
+  }, []);
+
   // -- Morgen-Autopilot: laeuft einmal pro Tag beim Oeffnen --
   useEffect(() => {
     const today = new Date().toDateString();
@@ -635,6 +673,19 @@ function TasksScreen({ tasks, setTasks, mode, maxVisible, addMemory }) {
     { id: "arbeit",   label: "Arbeit",   icon: "💼" },
     { id: "sonstiges",label: "Sonstiges",icon: "•"  },
   ];
+  const WIEDERHOLUNG = [
+    { id: "einmalig",   label: "Einmalig" },
+    { id: "taeglich",   label: "Taeglich" },
+    { id: "mo",         label: "Mo" },
+    { id: "di",         label: "Di" },
+    { id: "mi",         label: "Mi" },
+    { id: "do",         label: "Do" },
+    { id: "fr",         label: "Fr" },
+    { id: "sa",         label: "Sa" },
+    { id: "so",         label: "So" },
+    { id: "monatlich",  label: "Monatlich" },
+  ];
+  const [wiederholung, setWiederholung] = useState("einmalig");
 
   // Sortierung: Heute+Kinder zuerst, Irgendwann+Haushalt zuletzt
   const WANN_ORDER = { "heute": 0, "diese-woche": 1, "diesen-monat": 2, "irgendwann": 3 };
@@ -653,13 +704,15 @@ function TasksScreen({ tasks, setTasks, mode, maxVisible, addMemory }) {
     if (!val.trim()) return;
     const t = {
       id: Date.now(), text: val.trim(),
-      wann, kategorie,
+      wann, kategorie, wiederholung,
       priority: wann === "heute" ? "high" : "normal",
-      done: false, createdAt: Date.now()
+      done: false, createdAt: Date.now(),
+      lastCreated: new Date().toDateString(),
     };
     setTasks(prev => [...prev, t]);
-    addMemory("+ " + val.trim() + " (" + wann + ")");
+    addMemory("+ " + val.trim() + (wiederholung !== "einmalig" ? " (wiederkehrend: " + wiederholung + ")" : ""));
     setVal("");
+    setWiederholung("einmalig");
   }
 
   function doneTask(id, text) {
@@ -772,6 +825,20 @@ Antworte NUR mit nummerierten Zeilennummern der Aufgaben in Prioritaetsreihenfol
           ))}
         </div>
 
+        {/* Wiederholung */}
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" }}>Wiederholt sich?</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+          {WIEDERHOLUNG.map(w => (
+            <button key={w.id} onClick={() => setWiederholung(w.id)} style={{
+              padding: "7px 10px", borderRadius: 20,
+              border: "1px solid " + (wiederholung === w.id ? C.text : C.border),
+              background: wiederholung === w.id ? C.card : "transparent",
+              color: wiederholung === w.id ? C.text : C.muted,
+              fontSize: 12, fontWeight: wiederholung === w.id ? 700 : 400, cursor: "pointer"
+            }}>{w.label}</button>
+          ))}
+        </div>
+
         <button onClick={addTask} disabled={!val.trim()} style={{
           width: "100%", padding: "13px", background: val.trim() ? C.accent : C.border,
           border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, fontSize: 15, cursor: val.trim() ? "pointer" : "default"
@@ -857,7 +924,7 @@ function TaskRow({ task, index, onDone, onDelete }) {
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: isFirst ? 16 : 14, fontWeight: isFirst ? 600 : 400 }}>{task.text}</div>
-        <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center", flexWrap: "wrap" }}>
           {task.wann && (
             <span style={{ fontSize: 10, color: wannColor, fontWeight: 700, letterSpacing: 0.3 }}>
               {WANN_LABEL[task.wann] || task.wann}
@@ -866,6 +933,11 @@ function TaskRow({ task, index, onDone, onDelete }) {
           {task.kategorie && task.kategorie !== "sonstiges" && (
             <span style={{ fontSize: 11, color: C.muted }}>
               {KAT_ICON[task.kategorie]} {task.kategorie}
+            </span>
+          )}
+          {task.wiederholung && task.wiederholung !== "einmalig" && (
+            <span style={{ fontSize: 10, color: C.sage, fontWeight: 600 }}>
+              ↻ {task.wiederholung}
             </span>
           )}
         </div>
