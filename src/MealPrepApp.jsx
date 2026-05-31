@@ -2116,7 +2116,6 @@ WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
 
       const newMsg = { role: "assistant", text: cleanReply };
       setMessages(prev => { const updated = [...prev, newMsg]; setChatHistory(updated); return updated; });
-      if (sprachEingabeAktiv.current) { vorlesen(cleanReply); }
       sprachEingabeAktiv.current = false;
     } catch {
       setMessages(prev => { const updated = [...prev, { role: "assistant", text: "Verbindungsfehler." }]; setChatHistory(updated); return updated; });
@@ -2292,7 +2291,7 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingBottom: 12 }}>
         {messages.map((m, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
             <div style={{
               maxWidth: "85%",
               background: m.role === "user" ? C.accent : C.card,
@@ -2300,11 +2299,17 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
               padding: "12px 16px",
               fontSize: 15,
               lineHeight: 1.5,
-              border: m.role === "assistant" ? `1px solid ${C.border}` : "none",
+              border: m.role === "assistant" ? "1px solid " + C.border : "none",
               whiteSpace: "pre-wrap",
             }}>
               {m.text}
             </div>
+            {m.role === "assistant" && sprachAusgabeAn && (
+              <button onClick={() => vorlesen(m.text)} style={{
+                background: "none", border: "none", color: C.muted,
+                fontSize: 18, cursor: "pointer", padding: "4px 8px", marginTop: 2,
+              }}>🔊</button>
+            )}
           </div>
         ))}
         {loading && (
