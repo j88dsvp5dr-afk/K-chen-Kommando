@@ -87,6 +87,93 @@ PSYCHOLOGIE:
 `;
 
 
+// ================================================================
+//  KI MEMORY — Stiller Lernkern
+//  Beobachtet Verhalten, lernt Muster, niemals sichtbar fuer Nutzer
+// ================================================================
+
+function loadMemory() {
+  try { return JSON.parse(localStorage.getItem("vos_ki_memory") || "{}"); } catch { return {}; }
+}
+
+function saveMemory(mem) {
+  try { localStorage.setItem("vos_ki_memory", JSON.stringify(mem)); } catch {}
+}
+
+function beobachte(ereignis, kontext = {}) {
+  const mem = loadMemory();
+  const jetzt = new Date();
+  const wochentag = ["so","mo","di","mi","do","fr","sa"][jetzt.getDay()];
+  const stunde = jetzt.getHours();
+
+  switch(ereignis) {
+    case "essen_abgelehnt":
+      if (!mem.essen_ablehnungen) mem.essen_ablehnungen = {};
+      mem.essen_ablehnungen[wochentag] = (mem.essen_ablehnungen[wochentag] || 0) + 1;
+      break;
+    case "modus_rot":
+      if (!mem.stress_muster) mem.stress_muster = [];
+      mem.stress_muster.push({ tag: wochentag, stunde, datum: jetzt.toISOString().split("T")[0] });
+      mem.stress_muster = mem.stress_muster.slice(-20);
+      break;
+    case "aufgabe_erledigt":
+      if (!mem.aufgaben_muster) mem.aufgaben_muster = {};
+      const kat = kontext.kategorie || "sonstiges";
+      mem.aufgaben_muster[kat] = (mem.aufgaben_muster[kat] || 0) + 1;
+      break;
+    case "ueberfordert":
+      if (!mem.krisen) mem.krisen = [];
+      mem.krisen.push({ tag: wochentag, stunde, datum: jetzt.toISOString().split("T")[0] });
+      mem.krisen = mem.krisen.slice(-10);
+      break;
+    case "app_geoeffnet":
+      if (!mem.oeffnungszeiten) mem.oeffnungszeiten = [];
+      mem.oeffnungszeiten.push({ tag: wochentag, stunde });
+      mem.oeffnungszeiten = mem.oeffnungszeiten.slice(-30);
+      break;
+    case "termin_eingetragen":
+      if (!mem.termin_kategorien) mem.termin_kategorien = {};
+      const tkat = kontext.titel ? kontext.titel.toLowerCase().includes("arzt") ? "medizin" :
+                   kontext.titel.toLowerCase().includes("schule") ? "schule" : "sonstiges" : "sonstiges";
+      mem.termin_kategorien[tkat] = (mem.termin_kategorien[tkat] || 0) + 1;
+      break;
+  }
+
+  mem.letzte_aktualisierung = jetzt.toISOString();
+  mem.beobachtungen_gesamt = (mem.beobachtungen_gesamt || 0) + 1;
+  saveMemory(mem);
+}
+
+function kiMemoryAlsKontext() {
+  const mem = loadMemory();
+  if (!mem.beobachtungen_gesamt || mem.beobachtungen_gesamt < 3) return "";
+
+  const teile = [];
+
+  if (mem.stress_muster && mem.stress_muster.length >= 3) {
+    const tage = mem.stress_muster.map(m => m.tag);
+    const haeufig = [...new Set(tage)].sort((a,b) =>
+      tage.filter(t=>t===b).length - tage.filter(t=>t===a).length)[0];
+    teile.push("Beobachtet: Stress tritt haeufig am " + haeufig + " auf.");
+  }
+  if (mem.essen_ablehnungen) {
+    const maxTag = Object.entries(mem.essen_ablehnungen).sort((a,b)=>b[1]-a[1])[0];
+    if (maxTag && maxTag[1] >= 2) teile.push("Beobachtet: Essensvorschlaege werden am " + maxTag[0] + " oft abgelehnt — einfachere Option bevorzugen.");
+  }
+  if (mem.aufgaben_muster) {
+    const bevorzugt = Object.entries(mem.aufgaben_muster).sort((a,b)=>b[1]-a[1])[0];
+    if (bevorzugt) teile.push("Beobachtet: Aufgaben der Kategorie '" + bevorzugt[0] + "' werden am haeufigsten erledigt.");
+  }
+  if (mem.krisen && mem.krisen.length >= 2) {
+    const krisenTage = mem.krisen.map(k => k.tag);
+    const krisenTag = [...new Set(krisenTage)].sort((a,b) =>
+      krisenTage.filter(t=>t===b).length - krisenTage.filter(t=>t===a).length)[0];
+    teile.push("Beobachtet: Krisen treten haeufig am " + krisenTag + " auf — proaktiv reduzieren.");
+  }
+
+  return teile.length > 0 ? "\n\nPERSONALISIERTES LERNPROFIL (still beobachtet):\n" + teile.join("\n") : "";
+}
+
 // -- Feste Verena-Vorlagen (werden beim Onboarding eingefuegt) --
 const VERENA_VORLAGEN = {
   tasks: [
@@ -197,6 +284,9 @@ export default function VerenaOS() {
     setShowOnboarding(false);
   }
 
+  // -- App-Oeffnung beobachten -----------
+  useEffect(() => { beobachte("app_geoeffnet"); }, []);
+
   // -- Wiederkehrende Aufgaben automatisch erstellen -----------
   useEffect(() => {
     const heute = new Date();
@@ -273,7 +363,8 @@ export default function VerenaOS() {
         } catch { return "keine"; }
       })();
 
-      const prompt = `${VERENA_KONTEXT}
+      const kiLernprofil = kiMemoryAlsKontext();
+      const prompt = `${VERENA_KONTEXT}${kiLernprofil}
 
 HEUTE: ${wochentag}, ${datum}
 Offene Aufgaben: ${offeneAufgaben}
@@ -533,7 +624,8 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
       {activeTasks.length > 0 && (
         <FocusCard task={activeTasks[0]} onDone={() => {
           setTasks(prev => prev.map((t, i) => t.id === activeTasks[0].id ? { ...t, done: true } : t));
-          addMemory(`✓ Erledigt: ${activeTasks[0].text}`);
+          addMemory("Erledigt: " + activeTasks[0].text);
+          beobachte("aufgabe_erledigt", { kategorie: activeTasks[0].kategorie });
         }} />
       )}
 
@@ -675,7 +767,7 @@ Sonst nichts.`,
       {meal ? (
         <>
           <div style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 12, whiteSpace: "pre-line" }}>{meal}</div>
-          <button onClick={() => { setMeal(null); }} style={{
+          <button onClick={() => { beobachte("essen_abgelehnt"); setMeal(null); }} style={{
             background: "transparent",
             border: `1px solid ${C.border}`,
             borderRadius: 10,
@@ -1486,16 +1578,17 @@ function VoiceScreen({ mode, setMode, tasks, setTasks, meal, setMeal, addMemory,
     return heuteDatum;
   }
 
+  const kiLernprofil = kiMemoryAlsKontext();
   const SYSTEM = `Du bist Verenas Familien-Operator. Aktueller Modus: ${mode}.
 Heutiges Datum: ${heuteDatum} (${wochentag})
 
-Aufgaben offen: ${tasks.filter(t => !t.done).map(t => t.text).join(", ") || "keine"}
+Aufgaben offen: ${tasks.filter(t => !t.done).map(t => t.text).join(", ") || "keine"}${kiLernprofil}
 Essen heute: ${meal?.split("\n")[0] || "noch nicht geplant"}
 
 Regeln:
 - Antworte KURZ, KLAR, FUeHREND (max 3 Saetze)
 - Keine Rueckfragen wenn moeglich
-- Wenn Nutzer "ueberfordert" oder "heute schlimm" sagt - schlage Modus-Wechsel zu RED vor
+- Wenn Nutzer "ueberfordert" oder "heute schlimm" sagt - schlage Modus-Wechsel zu RED vor und gib [MODUS:RED] aus
 - Wenn "was jetzt?" - nenne NUR die 1 wichtigste Aufgabe
 - Wenn Artikel leer (z.B. "Milch leer") - bestaetige und lege Einkaufsartikel an
 - Kein Smalltalk
@@ -1540,8 +1633,9 @@ WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
       let cleanReply = reply;
       if (reply.includes("[MODUS:RED]")) {
         setMode("RED");
+        beobachte("modus_rot");
         cleanReply = reply.replace("[MODUS:RED]", "").trim();
-        addMemory("🔴 Modus auf RED gesetzt");
+        addMemory("Modus auf RED gesetzt");
       }
       const taskMatch = reply.match(/\[AUFGABE:(.+?)\]/);
       if (taskMatch) {
@@ -1566,6 +1660,7 @@ WICHTIG: Wenn der Nutzer mehrere Artikel nennt, gib MEHRERE Aktionen aus:
           setTermine(prev => [...prev, neuerTermin].sort((a, b) => new Date(a.datum) - new Date(b.datum)));
         }
         addMemory("Termin: " + titel.trim() + (datum ? " am " + datum : ""));
+        beobachte("termin_eingetragen", { titel: titel.trim() });
         setWarning("Termin gespeichert: " + titel.trim());
         cleanReply = cleanReply.replace(terminMatch[0], "").trim();
       }
