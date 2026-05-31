@@ -865,6 +865,11 @@ function ModeButton({ mode, setMode, mc }) {
 //  HOME SCREEN
 // -----------------------------------------------------------
 function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, warning, setWarning, addMemory, maxVisible, autopilot, autopilotLoading, runAutopilot, onPushAktivieren }) {
+  const [aufgabenOffen, setAufgabenOffen] = useState(false);
+  const [quickVal, setQuickVal] = useState("");
+  const [quickWann, setQuickWann] = useState("diese-woche");
+  const [quickKat, setQuickKat] = useState("sonstiges");
+  const offeneAufgaben = tasks.filter(t => !t.done);
   const isDark = mode === "DARK_RED";
 
   return (
@@ -955,24 +960,88 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
       {/* Meal Card */}
       <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
 
-      {/* Quick Add Task */}
+      {/* Aufgaben-Block */}
       {mode !== "DARK_RED" && (
-        <QuickAddTask tasks={tasks} setTasks={setTasks} addMemory={addMemory} />
+        <div style={{ marginBottom: 16 }}>
+          {/* Header mit Anzahl und Aufklapp-Button */}
+          <button onClick={() => setAufgabenOffen(o => !o)} style={{
+            width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+            background: "transparent", border: "none", cursor: "pointer", padding: "4px 0 10px",
+          }}>
+            <div style={{ fontSize: 12, color: C.muted, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+              Alle Aufgaben ({offeneAufgaben.length} offen)
+            </div>
+            <div style={{ fontSize: 12, color: C.muted }}>{aufgabenOffen ? "▲" : "▼"}</div>
+          </button>
+
+          {aufgabenOffen && (
+            <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 16 }}>
+              {/* Quick Add */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <input value={quickVal} onChange={e => setQuickVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && quickVal.trim()) {
+                    const t = { id: Date.now(), text: quickVal.trim(), wann: quickWann, kategorie: quickKat, priority: quickWann === "heute" ? "high" : "normal", done: false, createdAt: Date.now() };
+                    setTasks(prev => [...prev, t]);
+                    addMemory("+ " + quickVal.trim());
+                    setQuickVal("");
+                  }}}
+                  placeholder="+ Aufgabe..."
+                  style={{ flex: 1, background: C.surface, border: "1px solid " + C.border, borderRadius: GS.radiusSm, padding: "11px 14px", color: C.text, fontSize: 15, outline: "none" }} />
+                <button onClick={() => { if (quickVal.trim()) {
+                  const t = { id: Date.now(), text: quickVal.trim(), wann: quickWann, kategorie: quickKat, priority: "normal", done: false, createdAt: Date.now() };
+                  setTasks(prev => [...prev, t]); addMemory("+ " + quickVal.trim()); setQuickVal("");
+                }}} style={{ background: C.accent, border: "none", borderRadius: GS.radiusSm, padding: "11px 16px", color: "#fff", fontSize: 18, cursor: "pointer" }}>+</button>
+              </div>
+
+              {/* Wann-Auswahl */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+                {[{id:"heute",l:"Heute",c:C.accent},{id:"diese-woche",l:"Woche",c:C.gold},{id:"diesen-monat",l:"Monat",c:C.sage},{id:"irgendwann",l:"Irgendwann",c:C.muted}].map(w => (
+                  <button key={w.id} onClick={() => setQuickWann(w.id)} style={{
+                    padding: "6px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
+                    border: "1px solid " + (quickWann === w.id ? w.c : C.border),
+                    background: quickWann === w.id ? w.c + "25" : "transparent",
+                    color: quickWann === w.id ? w.c : C.muted, fontWeight: quickWann === w.id ? 700 : 400,
+                  }}>{w.l}</button>
+                ))}
+              </div>
+
+              {/* Aufgabenliste */}
+              {offeneAufgaben.slice(0, maxVisible).map((t, i) => (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < offeneAufgaben.slice(0,maxVisible).length-1 ? "1px solid " + C.border : "none" }}>
+                  <button onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? {...x, done: true, doneAt: Date.now()} : x)); addMemory("✓ " + t.text); beobachte("aufgabe_erledigt", {kategorie: t.kategorie}); }} style={{
+                    width: 26, height: 26, borderRadius: 8, border: "2px solid " + (i === 0 ? C.accent : C.border),
+                    background: "transparent", cursor: "pointer", flexShrink: 0,
+                  }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: i === 0 ? 600 : 400 }}>{t.text}</div>
+                    {t.wann && <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t.wann}</div>}
+                  </div>
+                  <button onClick={() => setTasks(prev => prev.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}>x</button>
+                </div>
+              ))}
+              {offeneAufgaben.length > maxVisible && (
+                <div style={{ textAlign: "center", padding: "10px 0 0", fontSize: 13, color: C.muted }}>
+                  + {offeneAufgaben.length - maxVisible} weitere versteckt
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Stats */}
-      <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-        <StatPill label="Erledigt heute" value={tasks.filter(t => t.done && isToday(t.doneAt)).length} />
-        <StatPill label="Offen gesamt" value={tasks.filter(t => !t.done).length} />
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+        <StatPill label="Heute erledigt" value={tasks.filter(t => t.done && isToday(t.doneAt)).length} />
+        <StatPill label="Offen" value={offeneAufgaben.length} />
       </div>
 
-      {/* Push aktivieren wenn noch nicht aktiv */}
+      {/* Push aktivieren */}
       {typeof Notification !== "undefined" && Notification.permission === "default" && (
         <button onClick={onPushAktivieren} style={{
-          width: "100%", marginTop: 12, padding: "13px",
-          background: "transparent", border: "1px solid " + C.gold + "60",
-          borderRadius: 14, color: C.gold, fontSize: 14, fontWeight: 600,
-          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+          width: "100%", padding: "13px", background: "transparent",
+          border: "1px solid " + C.gold + "60", borderRadius: GS.radius,
+          color: C.gold, fontSize: 14, fontWeight: 600, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8
         }}>
           🔔 Terminerinnerungen aktivieren
         </button>
@@ -2696,7 +2765,6 @@ function MemoryScreen({ memory, setMemory }) {
 function BottomNav({ screen, setScreen }) {
   const items = [
     { id: "home",    label: "Home",    icon: "⌂" },
-    { id: "tasks",   label: "Aufgaben",icon: "✓" },
     { id: "kueche",  label: "Kueche",  icon: "🧊" },
     { id: "voice",   label: "KI",      icon: "◎" },
     { id: "termine", label: "Termine", icon: "📅" },
