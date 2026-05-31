@@ -454,6 +454,41 @@ export default function VerenaOS() {
     }
   }, [termine]);
 
+  // -- Sprachausgabe (global im App-State) --
+  const [sprichtGerade, setSprichtGerade] = useState(false);
+  const [sprachAusgabeAn, setSprachAusgabeAn] = useState(() => {
+    return localStorage.getItem("vos_sprache_an") !== "false";
+  });
+
+  function vorlesen(text) {
+    if (!sprachAusgabeAn) return;
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const sauber = text.split("[").join("").split("]").join("").split("\n").join(". ").trim();
+    const utterance = new SpeechSynthesisUtterance(sauber);
+    utterance.lang = "de-DE";
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    const stimmen = window.speechSynthesis.getVoices();
+    const deutsch = stimmen.find(s => s.lang === "de-DE") || stimmen.find(s => s.lang.startsWith("de"));
+    if (deutsch) utterance.voice = deutsch;
+    utterance.onstart = () => setSprichtGerade(true);
+    utterance.onend = () => setSprichtGerade(false);
+    utterance.onerror = () => setSprichtGerade(false);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function spracheStoppen() {
+    window.speechSynthesis.cancel();
+    setSprichtGerade(false);
+  }
+
+  function toggleSprachausgabe() {
+    const neu = !sprachAusgabeAn;
+    setSprachAusgabeAn(neu);
+    localStorage.setItem("vos_sprache_an", neu ? "true" : "false");
+  }
+
   async function pushBenachrichtigungAnfragen() {
     if (!("Notification" in window)) {
       alert("Dein Browser unterstuetzt keine Benachrichtigungen.");
