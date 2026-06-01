@@ -89,22 +89,35 @@ function save(key, val) {
 
 // -- Claude API Call ----------------------------------------
 async function askClaude(systemPrompt, userMessage, history = []) {
-  const messages = [
-    ...history.map(m => ({ role: m.role, content: m.text })),
-    { role: "user", content: userMessage }
-  ];
-  const res = await fetch("/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-5",
-      max_tokens: 800,
-      system: systemPrompt,
-      messages,
-    }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text || "Keine Antwort.";
+  // Sofort abbrechen wenn offline
+  if (!navigator.onLine) {
+    return "📵 Offline — KI nicht verfuegbar. Deine Daten sind sicher gespeichert.";
+  }
+  try {
+    const messages = [
+      ...history.map(m => ({ role: m.role, content: m.text })),
+      { role: "user", content: userMessage }
+    ];
+    const res = await fetch("/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 800,
+        system: systemPrompt,
+        messages,
+      }),
+    });
+    if (!res.ok) {
+      console.log("Claude API Fehler:", res.status);
+      return "KI momentan nicht erreichbar. Deine Daten bleiben gespeichert.";
+    }
+    const data = await res.json();
+    return data.content?.[0]?.text || "Keine Antwort.";
+  } catch (e) {
+    console.log("Claude fetch Fehler:", e);
+    return "📵 Verbindung unterbrochen. Deine Daten sind lokal gesichert.";
+  }
 }
 
 // -----------------------------------------------------------
@@ -417,6 +430,19 @@ export default function VerenaOS() {
     const hasTermine = JSON.parse(localStorage.getItem("vos_termine") || "[]").length > 0;
     return !onboarded && !hasTasks && !hasTermine;
   });
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+  // Offline-Erkennung
+  useEffect(() => {
+    const goOnline  = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online",  goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online",  goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   // -- Persist ---------------------------------------------
   useEffect(() => save("vos_mode", mode), [mode]);
@@ -814,6 +840,23 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
               Leer starten
             </button>
           </div>
+        </div>
+      )}
+
+      {/* -- Offline Banner -- */}
+      {!isOnline && (
+        <div style={{
+          background: "#1a1200",
+          borderBottom: "1px solid #C9A04A40",
+          padding: "8px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: 13,
+          color: C.gold,
+        }}>
+          <span>📵</span>
+          <span>Offline — Deine Daten sind lokal gespeichert. KI nicht verfuegbar.</span>
         </div>
       )}
 

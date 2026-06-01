@@ -8,3 +8,17 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Service Worker registrieren
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
+        console.log('SW registriert:', reg.scope);
+      })
+      .catch((err) => {
+        console.log('SW Fehler:', err);
+      });
+  });
+}
