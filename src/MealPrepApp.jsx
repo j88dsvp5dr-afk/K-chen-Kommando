@@ -422,6 +422,38 @@ const KALENDER_IMPORT = {
   ]
 };
 
+// -----------------------------------------------------------
+//  SCREEN GUARD — ErrorBoundary fuer jeden Tab
+//  Crasht ein Tab, laufen die anderen weiter
+// -----------------------------------------------------------
+class ScreenGuard extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidCatch(e, info) { console.error("ScreenGuard [" + this.props.name + "]:", e, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: "32px 0", textAlign: "center" }}>
+          <div style={{ fontSize: 28, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 15, color: "#5A5550", marginBottom: 20 }}>
+            {this.props.name} konnte nicht geladen werden.
+          </div>
+          <button
+            onClick={() => this.setState({ error: null })}
+            style={{ padding: "10px 24px", background: "#E8552A", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+          >
+            Neu laden
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function VerenaOS() {
   // -- State ----------------------------------------------
   const [mode, setMode]         = useState(() => load("vos_mode", "GREEN"));
@@ -571,14 +603,21 @@ export default function VerenaOS() {
     }
   }, []);
 
-  // Termine an Service Worker schicken fuer lokale Benachrichtigungen
+  // Termine an Service Worker schicken — nur einmal pro Tag + nur zwischen 7-21 Uhr
   useEffect(() => {
-    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: "CHECK_TERMINE",
-        termine: termine,
-      });
-    }
+    if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) return;
+    const jetzt = new Date();
+    const stunde = jetzt.getHours();
+    // Kein Spam: nur zwischen 7 und 21 Uhr
+    if (stunde < 7 || stunde >= 21) return;
+    // Kein Spam: max einmal pro App-Oeffnung (Key pro Tag+Stunde)
+    const spamKey = "vos_push_sent_" + jetzt.toDateString() + "_" + stunde;
+    if (sessionStorage.getItem(spamKey)) return;
+    sessionStorage.setItem(spamKey, "1");
+    navigator.serviceWorker.controller.postMessage({
+      type: "CHECK_TERMINE",
+      termine: termine,
+    });
   }, [termine]);
 
   async function pushBenachrichtigungAnfragen() {
@@ -643,29 +682,40 @@ export default function VerenaOS() {
       localStorage.removeItem("vos_rueckblick"); // Alten loeschen damit neu generiert wird
     }
 
-    // Automatisches internes Backup
+    // Automatisches internes Backup mit Rotation (3 Slots: heute, gestern, vorgestern)
     const heute = new Date().toDateString();
     const letztesBackup = localStorage.getItem("vos_last_backup");
     if (letztesBackup !== heute) {
       setTimeout(() => {
         try {
-          const data = {
-            version: 1,
+          const snap = {
+            version: 2,
             ts: new Date().toISOString(),
-            tasks:      JSON.parse(localStorage.getItem("vos_tasks") || "[]"),
-            termine:    JSON.parse(localStorage.getItem("vos_termine") || "[]"),
-            tk:         JSON.parse(localStorage.getItem("vos_tk") || "[]"),
-            vorrat:     JSON.parse(localStorage.getItem("vos_vorrat") || "[]"),
-            einkauf:    JSON.parse(localStorage.getItem("vos_einkauf") || "[]"),
+            tasks:      JSON.parse(localStorage.getItem("vos_tasks")    || "[]"),
+            termine:    JSON.parse(localStorage.getItem("vos_termine")  || "[]"),
+            tk:         JSON.parse(localStorage.getItem("vos_tk")       || "[]"),
+            vorrat:     JSON.parse(localStorage.getItem("vos_vorrat")   || "[]"),
+            einkauf:    JSON.parse(localStorage.getItem("vos_einkauf")  || "[]"),
             wochenplan: JSON.parse(localStorage.getItem("vos_wochenplan") || "null"),
             ki_memory:  JSON.parse(localStorage.getItem("vos_ki_memory") || "{}"),
           };
-          localStorage.setItem("vos_backup_intern", JSON.stringify(data));
+          // Gesundheitscheck: nur speichern wenn sinnvolle Daten vorhanden
+          const hatDaten = snap.tasks.length > 0 || snap.termine.length > 0 || snap.vorrat.length > 0;
+          if (!hatDaten) return;
+          // Rotation: slot0=heute, slot1=gestern, slot2=vorgestern
+          const slot1 = localStorage.getItem("vos_backup_slot0");
+          const slot2 = localStorage.getItem("vos_backup_slot1");
+          if (slot1) localStorage.setItem("vos_backup_slot1", slot1);
+          if (slot2) localStorage.setItem("vos_backup_slot2", slot2);
+          localStorage.setItem("vos_backup_slot0", JSON.stringify(snap));
+          // Kompatibilitaet: vos_backup_intern bleibt als alias
+          localStorage.setItem("vos_backup_intern", JSON.stringify(snap));
           localStorage.setItem("vos_last_backup", heute);
+          console.log("Auto-Backup OK:", snap.tasks.length, "Tasks,", snap.termine.length, "Termine");
         } catch(e) {
           console.log("Auto-Backup fehlgeschlagen:", e);
         }
-      }, 2000);
+      }, 3000); // nach 3s — nach Cloud-Sync
     }
   }, []);
 
@@ -882,11 +932,21 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
 
       {/* -- Screen Content -- */}
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 100px" }}>
-        {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} onPushAktivieren={pushBenachrichtigungAnfragen} termine={termine} />}
-        {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
-        {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} vorrat={vorrat} setVorrat={setVorrat} tk={tk} setTk={setTk} />}
-        {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} />}
-        {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
+        <ScreenGuard name="Home">
+          {screen === "home"    && <HomeScreen mode={mode} mc={mc} activeTasks={activeTasks} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} warning={warning} setWarning={setWarning} addMemory={addMemory} maxVisible={maxVisible} autopilot={autopilot} autopilotLoading={autopilotLoading} runAutopilot={runAutopilot} onPushAktivieren={pushBenachrichtigungAnfragen} termine={termine} />}
+        </ScreenGuard>
+        <ScreenGuard name="Aufgaben">
+          {screen === "tasks"   && <TasksScreen tasks={tasks} setTasks={setTasks} mode={mode} maxVisible={maxVisible} addMemory={addMemory} />}
+        </ScreenGuard>
+        <ScreenGuard name="Kueche">
+          {screen === "kueche"  && <KuecheScreen addMemory={addMemory} mode={mode} einkauf={einkauf} setEinkauf={setEinkauf} vorrat={vorrat} setVorrat={setVorrat} tk={tk} setTk={setTk} />}
+        </ScreenGuard>
+        <ScreenGuard name="KI">
+          {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} />}
+        </ScreenGuard>
+        <ScreenGuard name="Termine">
+          {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
+        </ScreenGuard>
       </div>
 
       {/* -- Bottom Nav -- */}
