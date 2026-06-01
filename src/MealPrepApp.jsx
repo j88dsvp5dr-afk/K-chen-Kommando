@@ -944,6 +944,9 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
         <ScreenGuard name="KI">
           {screen === "voice"   && <VoiceScreen mode={mode} setMode={setMode} tasks={tasks} setTasks={setTasks} meal={meal} setMeal={setMeal} addMemory={addMemory} setWarning={setWarning} setScreen={setScreen} setTermine={setTermine} setEinkauf={setEinkauf} setVorrat={setVorrat} setTk={setTk} chatHistory={chatHistory} setChatHistory={setChatHistory} />}
         </ScreenGuard>
+        <ScreenGuard name="Kinder">
+          {screen === "kinder"  && <KinderScreen addMemory={addMemory} setWarning={setWarning} termine={termine} setTermine={setTermine} setScreen={setScreen} />}
+        </ScreenGuard>
         <ScreenGuard name="Termine">
           {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
         </ScreenGuard>
@@ -2653,6 +2656,87 @@ Datum immer als YYYY-MM-DD. Jahreszahl 2026 wenn nicht anders erkennbar.`,
 }
 
 // -----------------------------------------------------------
+//  KLAMMERN SYSTEM — Belohnungspunkte
+// -----------------------------------------------------------
+function KlammernSystem({ aktiv, kind }) {
+  const [punkte, setPunkte] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("vos_klammern") || '{"hanna":0,"timo":0}'); } catch { return {hanna:0,timo:0}; }
+  });
+
+  const EINZEL_ZIEL  = 10;  // 10 Klammern = 30 Min Bildschirmzeit
+  const GESAMT_ZIEL1 = 40;  // 40 zusammen = Filmabend
+  const GESAMT_ZIEL2 = 70;  // 70 zusammen = Familienausflug
+
+  function aendern(delta) {
+    setPunkte(prev => {
+      const neu = { ...prev, [aktiv]: Math.max(0, (prev[aktiv] || 0) + delta) };
+      try { localStorage.setItem("vos_klammern", JSON.stringify(neu)); } catch {}
+      return neu;
+    });
+  }
+
+  const eigene   = punkte[aktiv] || 0;
+  const gesamt   = (punkte.hanna || 0) + (punkte.timo || 0);
+  const prozent  = Math.min(100, (eigene / EINZEL_ZIEL) * 100);
+  const gProzent = Math.min(100, (gesamt / GESAMT_ZIEL2) * 100);
+
+  return (
+    <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 18, marginBottom: 14 }}>
+      <div style={{ fontSize: 13, color: C.muted, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, marginBottom: 16 }}>
+        🪢 Wäscheklammern
+      </div>
+
+      {/* Eigene Punkte */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+        <button onClick={() => aendern(-1)} style={{
+          width: 44, height: 44, borderRadius: 22, background: C.surface,
+          border: "1px solid " + C.border, color: C.text, fontSize: 22, cursor: "pointer"
+        }}>−</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{kind.name}</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: eigene >= EINZEL_ZIEL ? C.gold : C.text }}>
+              {eigene} / {EINZEL_ZIEL} 🪢
+            </span>
+          </div>
+          <div style={{ height: 8, background: C.surface, borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: prozent + "%", background: eigene >= EINZEL_ZIEL ? C.gold : C.accent, borderRadius: 4, transition: "width 0.3s" }} />
+          </div>
+          {eigene >= EINZEL_ZIEL && (
+            <div style={{ fontSize: 12, color: C.gold, marginTop: 6, fontWeight: 700 }}>🎉 30 Min Bildschirmzeit verdient!</div>
+          )}
+        </div>
+        <button onClick={() => aendern(1)} style={{
+          width: 44, height: 44, borderRadius: 22, background: C.accent,
+          border: "none", color: "#fff", fontSize: 22, cursor: "pointer", fontWeight: 700
+        }}>+</button>
+      </div>
+
+      {/* Gemeinsam */}
+      <div style={{ borderTop: "1px solid " + C.border, paddingTop: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 13, color: C.muted }}>Zusammen</span>
+          <span style={{ fontSize: 13, color: C.muted }}>{gesamt} Klammern</span>
+        </div>
+        <div style={{ height: 6, background: C.surface, borderRadius: 3, overflow: "hidden", marginBottom: 8 }}>
+          <div style={{ height: "100%", width: gProzent + "%", background: C.sage, borderRadius: 3, transition: "width 0.3s" }} />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1, padding: "8px", background: gesamt >= GESAMT_ZIEL1 ? C.sage + "30" : C.surface, borderRadius: 10, textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: C.muted }}>Filmabend</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: gesamt >= GESAMT_ZIEL1 ? C.sage : C.muted }}>{GESAMT_ZIEL1} 🎬</div>
+          </div>
+          <div style={{ flex: 1, padding: "8px", background: gesamt >= GESAMT_ZIEL2 ? C.gold + "30" : C.surface, borderRadius: 10, textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: C.muted }}>Ausflug</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: gesamt >= GESAMT_ZIEL2 ? C.gold : C.muted }}>{GESAMT_ZIEL2} 🎡</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------
 //  KINDER SCREEN — Hanna & Timo
 // -----------------------------------------------------------
 function KinderScreen({ addMemory, setWarning, termine, setTermine, setScreen }) {
@@ -2876,6 +2960,9 @@ function KinderScreen({ addMemory, setWarning, termine, setTermine, setScreen })
           })
         )}
       </div>
+
+      {/* Wäscheklammern-Punkte */}
+      <KlammernSystem aktiv={aktiv} kind={kind} />
 
       {/* Notizen */}
       <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: GS.radius, padding: 18 }}>
@@ -3188,6 +3275,7 @@ function BottomNav({ screen, setScreen }) {
     { id: "home",    label: "Home",    icon: "⌂" },
     { id: "kueche",  label: "Kueche",  icon: "🧊" },
     { id: "voice",   label: "KI",      icon: "◎" },
+    { id: "kinder",  label: "Kinder",  icon: "👧" },
     { id: "termine", label: "Termine", icon: "📅" },
   ];
 
