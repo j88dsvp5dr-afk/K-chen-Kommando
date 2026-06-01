@@ -120,6 +120,20 @@ async function askClaude(systemPrompt, userMessage, history = []) {
   }
 }
 
+// -- KI JSON sicher parsen ----------------------------------
+// Gibt null zurueck wenn KI offline war oder JSON ungueltig
+function safeParseKI(reply) {
+  if (!reply) return null;
+  // Offline-Meldungen erkennen
+  if (reply.startsWith("📵") || reply.startsWith("KI momentan") || reply.startsWith("Verbindung")) return null;
+  try {
+    const clean = reply.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  } catch {
+    return null;
+  }
+}
+
 // -----------------------------------------------------------
 //  MAIN APP
 // -----------------------------------------------------------
@@ -748,8 +762,14 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
 }`;
 
       const reply = await askClaude("Antworte nur als reines JSON ohne Markdown.", prompt);
-      const clean = reply.replace(/```json|```/g, "").trim();
-      const data = JSON.parse(clean);
+      const data = safeParseKI(reply);
+
+      // KI offline oder Fehler — App laeuft trotzdem normal weiter
+      if (!data) {
+        setAutopilot({ fokus: null, essen: null, warnung: null, offline: true });
+        setAutopilotLoading(false);
+        return;
+      }
 
       setAutopilot(data);
       localStorage.setItem("vos_autopilot_result", JSON.stringify(data));
@@ -1193,7 +1213,11 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
       {autopilot && !autopilotLoading && !showOverblick && (
         <div style={{ background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: "12px 16px", marginBottom: 12 }}>
           <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Autopilot</div>
-          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{autopilot.begruendung}</div>
+          {autopilot.offline ? (
+            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>📵 KI offline — Tagesplan nicht verfuegbar.</div>
+          ) : (
+            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{autopilot.begruendung}</div>
+          )}
           <button onClick={() => { localStorage.removeItem("vos_autopilot_date"); localStorage.removeItem("vos_autopilot_result"); setAutopilot(null); runAutopilot(); }} style={{ marginTop: 8, background: "transparent", border: "1px solid " + C.border, borderRadius: 8, padding: "4px 10px", color: C.muted, fontSize: 11, cursor: "pointer" }}>Neu planen</button>
         </div>
       )}
@@ -1414,7 +1438,8 @@ function AutoPrioButton({ tasks, setTasks, addMemory }) {
         liste
       );
       const clean = reply.replace(/```json|```/g, "").trim();
-      const prioMap = JSON.parse(clean);
+      const prioMap = safeParseKI(reply);
+      if (!prioMap) return; // KI offline — Prios bleiben unveraendert
       setTasks(prev => {
         const updated = [...prev];
         prioMap.forEach(item => {
@@ -1786,7 +1811,11 @@ Antworte als JSON-Array mit 7 Objekten:
 vorhanden=true wenn alle Hauptzutaten im TK/Vorrat sind.`
       );
       const clean = reply.replace(/```json|```/g, "").trim();
-      const plan = JSON.parse(clean);
+      const plan = safeParseKI(reply);
+      if (!plan) {
+        addMemory("Wochenplan: KI nicht erreichbar — bitte spaeter nochmal versuchen.");
+        return;
+      }
       setWochenplan(plan);
       addMemory("Wochenplan generiert");
 
