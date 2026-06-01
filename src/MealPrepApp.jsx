@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
+// Wake Lock — Bildschirm bleibt an (z.B. beim Einkaufen)
+async function requestWakeLock(ref) {
+  if ("wakeLock" in navigator) {
+    try { ref.current = await navigator.wakeLock.request("screen"); } catch {}
+  }
+}
+function releaseWakeLock(ref) {
+  try { if (ref.current) { ref.current.release(); ref.current = null; } } catch {}
+}
+
 // Globale CSS-Injektion fuer bessere Schrift + Touch
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
@@ -1158,10 +1168,18 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
     return diff >= 0 && diff <= 1;
   });
 
+  // Wochenübersicht: naechste 7 Tage
+  const wocheTermine = (termine || []).filter(t => {
+    const d = new Date(t.datum); d.setHours(0,0,0,0);
+    const h = new Date(); h.setHours(0,0,0,0);
+    const diff = Math.round((d-h)/86400000);
+    return diff >= 0 && diff <= 7;
+  }).slice(0, 4);
+
   return (
     <div style={{ paddingTop: 20 }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 13, color: C.muted }}>{new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}</div>
           <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: -1.2, margin: "4px 0 0", color: mode === "DARK_RED" ? C.danger : C.text }}>
@@ -1187,6 +1205,31 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
       {naechsterTermin && !showOverblick && (
         <div style={{ background: C.gold + "15", border: "1px solid " + C.gold + "40", borderRadius: 14, padding: "10px 16px", marginBottom: 14, fontSize: 14, color: C.gold }}>
           Termin: {naechsterTermin.title}{naechsterTermin.time ? " um " + naechsterTermin.time : ""}
+        </div>
+      )}
+
+      {/* Wochenübersicht — naechste 7 Tage kompakt */}
+      {wocheTermine.length > 0 && !showOverblick && (
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 14, paddingBottom: 4 }}>
+          {wocheTermine.map(t => {
+            const d = new Date(t.datum); d.setHours(0,0,0,0);
+            const h = new Date(); h.setHours(0,0,0,0);
+            const diff = Math.round((d-h)/86400000);
+            return (
+              <div key={t.id} style={{
+                flexShrink: 0, background: C.card, border: "1px solid " + (diff === 0 ? C.accent + "60" : C.border),
+                borderRadius: 10, padding: "8px 12px", minWidth: 100
+              }}>
+                <div style={{ fontSize: 10, color: diff === 0 ? C.accent : C.gold, fontWeight: 800, textTransform: "uppercase", marginBottom: 3 }}>
+                  {diff === 0 ? "HEUTE" : diff === 1 ? "MORGEN" : d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric" })}
+                </div>
+                <div style={{ fontSize: 12, color: C.text, fontWeight: 600, lineHeight: 1.3 }}>
+                  {t.title.length > 22 ? t.title.slice(0, 22) + "…" : t.title}
+                </div>
+                {t.time && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t.time}</div>}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -1263,7 +1306,9 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
             </div>
           )}
 
-          <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
+          <KarteMitToggle id="essen" label="Essen">
+            <MealCard meal={meal} setMeal={setMeal} mode={mode} addMemory={addMemory} />
+          </KarteMitToggle>
 
           <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
             <StatPill label="Heute erledigt" value={tasks.filter(t => t.done && isToday(t.doneAt)).length} />
@@ -1274,15 +1319,16 @@ function HomeScreen({ mode, mc, activeTasks, tasks, setTasks, meal, setMeal, war
 
       {/* Autopilot */}
       {autopilot && !autopilotLoading && !showOverblick && (
-        <div style={{ background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: "12px 16px", marginBottom: 12 }}>
-          <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Autopilot</div>
-          {autopilot.offline ? (
-            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>📵 KI offline — Tagesplan nicht verfuegbar.</div>
-          ) : (
-            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{autopilot.begruendung}</div>
-          )}
-          <button onClick={() => { localStorage.removeItem("vos_autopilot_date"); localStorage.removeItem("vos_autopilot_result"); setAutopilot(null); runAutopilot(); }} style={{ marginTop: 8, background: "transparent", border: "1px solid " + C.border, borderRadius: 8, padding: "4px 10px", color: C.muted, fontSize: 11, cursor: "pointer" }}>Neu planen</button>
-        </div>
+        <KarteMitToggle id="autopilot" label="Autopilot">
+          <div style={{ background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: "12px 16px", marginBottom: 0 }}>
+            {autopilot.offline ? (
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>📵 KI offline — Tagesplan nicht verfuegbar.</div>
+            ) : (
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{autopilot.begruendung}</div>
+            )}
+            <button onClick={() => { localStorage.removeItem("vos_autopilot_date"); localStorage.removeItem("vos_autopilot_result"); setAutopilot(null); runAutopilot(); }} style={{ marginTop: 8, background: "transparent", border: "1px solid " + C.border, borderRadius: 8, padding: "4px 10px", color: C.muted, fontSize: 11, cursor: "pointer" }}>Neu planen</button>
+          </div>
+        </KarteMitToggle>
       )}
 
       <Sonntagsrueckblick tasks={tasks} termine={termine || []} addMemory={addMemory} />
@@ -1524,6 +1570,29 @@ function AutoPrioButton({ tasks, setTasks, addMemory }) {
       borderRadius: 20, padding: "6px 14px", color: loading ? C.muted : C.gold,
       fontSize: 12, fontWeight: 600, cursor: loading ? "default" : "pointer", marginBottom: 8,
     }}>{loading ? "KI priorisiert..." : "Auto P1/P2/P3"}</button>
+  );
+}
+
+// Versteckbare Karte mit Tipp-Toggle
+function KarteMitToggle({ id, label, children }) {
+  const key = "vos_karte_" + id;
+  const [sichtbar, setSichtbar] = useState(() => {
+    try { return localStorage.getItem(key) !== "hidden"; } catch { return true; }
+  });
+  function toggle() {
+    const neu = !sichtbar;
+    setSichtbar(neu);
+    try { localStorage.setItem(key, neu ? "visible" : "hidden"); } catch {}
+  }
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: sichtbar ? 4 : 0 }}>
+        <button onClick={toggle} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", padding: "2px 6px" }}>
+          {sichtbar ? "▲ " + label : "▼ " + label + " anzeigen"}
+        </button>
+      </div>
+      {sichtbar && children}
+    </div>
   );
 }
 
@@ -1840,6 +1909,12 @@ function TaskRow({ task, index, onDone, onDelete }) {
 //  KUECHE SCREEN — TK + Vorrat + Wochenplan + Einkauf
 // -----------------------------------------------------------
 function KuecheScreen({ addMemory, mode, einkauf, setEinkauf, vorrat, setVorrat, tk, setTk }) {
+  const wakeLockRef = useRef(null);
+  useEffect(() => {
+    // Wake Lock aktivieren wenn Einkaufsliste offen
+    requestWakeLock(wakeLockRef);
+    return () => releaseWakeLock(wakeLockRef);
+  }, []);
   const [tab, setTab] = useState("woche");
   const [wochenplan, setWochenplan] = useState(() => { try { return JSON.parse(localStorage.getItem("vos_wochenplan") || "null"); } catch { return null; } });
   const [loading, setLoading] = useState(false);
@@ -1977,7 +2052,8 @@ vorhanden=true wenn alle Hauptzutaten im TK/Vorrat sind.`
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             <input value={newItem} onChange={e => setNewItem(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && newItem.trim()) {
-                setEinkauf(prev => [...prev, { id: Date.now(), name: newItem.trim(), done: false }]);
+                const n = newItem.trim();
+                setEinkauf(prev => prev.some(x => x.name.toLowerCase() === n.toLowerCase()) ? prev : [...prev, { id: Date.now(), name: n, done: false }]);
                 setNewItem("");
               }}}
               placeholder="Artikel hinzufuegen..."
@@ -2071,8 +2147,15 @@ vorhanden=true wenn alle Hauptzutaten im TK/Vorrat sind.`
           )}
           {vorrat.map(item => (
             <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid " + C.border }}>
-              <div style={{ fontSize: 18 }}>🥫</div>
-              <div style={{ flex: 1, fontSize: 15 }}>{item.name}</div>
+              <button onClick={() => setVorrat(prev => prev.map(x => x.id === item.id ? {...x, leer: !x.leer} : x))}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, padding: 0 }}>
+                {item.leer ? "🔴" : "🟢"}
+              </button>
+              <div style={{ flex: 1, fontSize: 15, textDecoration: item.leer ? "line-through" : "none", color: item.leer ? C.muted : C.text }}>{item.name}</div>
+              {item.leer && (
+                <button onClick={() => { setEinkauf(prev => [...prev, { id: Date.now(), name: item.name, done: false }]); setVorrat(prev => prev.map(x => x.id === item.id ? {...x, leer: false} : x)); addMemory("Einkauf: " + item.name + " hinzugefuegt"); }}
+                  style={{ background: C.gold + "20", border: "1px solid " + C.gold + "40", borderRadius: 8, padding: "4px 8px", color: C.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Einkauf</button>
+              )}
               <button onClick={() => { setVorrat(prev => prev.filter(x => x.id !== item.id)); addMemory("Vorrat: " + item.name + " entfernt"); }}
                 style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>x</button>
             </div>
