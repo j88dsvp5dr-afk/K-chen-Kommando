@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import MasterTasksScreen from "./MasterTasksScreen";
 
 // Wake Lock — Bildschirm bleibt an (z.B. beim Einkaufen)
 async function requestWakeLock(ref) {
@@ -959,6 +960,7 @@ Erstelle den Tagesplan fuer Verena. Antworte NUR als JSON:
         </ScreenGuard>
         <ScreenGuard name="Termine">
           {screen === "termine" && <TermineScreen addMemory={addMemory} setWarning={setWarning} tasks={tasks} setTasks={setTasks} termine={termine} setTermine={setTermine} />}
+          {screen === "master"  && <MasterTasksScreen onCreateTermine={(newTermine) => { setTermine([...termine, ...newTermine]); setScreen("termine"); }} />}
         </ScreenGuard>
       </div>
 
@@ -3359,6 +3361,7 @@ function BottomNav({ screen, setScreen }) {
     { id: "kueche",  label: "Kueche",  icon: "🧊" },
     { id: "voice",   label: "KI",      icon: "◎" },
     { id: "kinder",  label: "Kinder",  icon: "👧" },
+    { id: "master",  label: "Master",  icon: "📋" },
     { id: "termine", label: "Termine", icon: "📅" },
   ];
 
