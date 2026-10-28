@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import { KI_ENDPOINT, KI_MODEL } from "../lib/claude";
 
 export default function MasterTasksScreen({ userContext = {}, onCreateTermine = () => {} }) {
   const [masterTasks, setMasterTasks] = useState([]);
@@ -64,11 +65,11 @@ Optimiere diese Tasks und antworte NUR mit JSON (keine anderen Worte):
 }`;
 
     try {
-      const res = await fetch("/api/claude", {
+      const res = await fetch(KI_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: KI_MODEL,
           max_tokens: 2000,
           system: "Du bist JSON-only API. Antworte IMMER mit Valid JSON, keine Worte davor/danach.",
           messages: [{ role: "user", content: prompt }],

@@ -1,13 +1,10 @@
-const CACHE_NAME = "verena-os-v2";
+const CACHE_NAME = "verena-os-v3";
 
-// Alle statischen Assets die gecacht werden sollen
+// App-Shell die beim Installieren gecacht wird.
+// Die JS/CSS-Dateien (dist/assets/*, mit Hash im Namen) landen beim ersten Laden automatisch im Cache.
 const STATIC_ASSETS = [
   "/",
   "/index.html",
-  "/static/js/main.chunk.js",
-  "/static/js/bundle.js",
-  "/static/js/vendors~main.chunk.js",
-  "/static/css/main.chunk.css",
   "/manifest.json",
   "/icon-192.png",
   "/icon-512.png",

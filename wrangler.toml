@@ -1,0 +1,4 @@
+# Cloudflare Pages: Build-Ausgabe liegt in dist/, Functions in functions/
+name = "kuechen-kommando"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-10-01"
